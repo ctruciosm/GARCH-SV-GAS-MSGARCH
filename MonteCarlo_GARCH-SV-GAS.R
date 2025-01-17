@@ -7,7 +7,7 @@ library(GAS)
 library(stochvol)
 
 ## Setting values
-mc <- 10
+mc <- 1000
 n_burnin <- 1000
 
 

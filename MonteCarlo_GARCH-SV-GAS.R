@@ -24,11 +24,10 @@ if(length(args) > 0){
     }
   }
 } else {
-  n <- 1000
-  distri <- "std"
+  n <- 500
+  distri <- "norm"
 }
-n
-distri
+
 
 
 if (distri == "norm") {

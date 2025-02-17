@@ -11,12 +11,26 @@ source("DGPs.R")
 ## Setting values
 mc <- 1000
 
-f_custom_optim <- function(vPw, f_nll, spec, data, do.plm){
-  out <- stats::optim(vPw, f_nll, spec = spec, data = data,
-    do.plm = do.plm, method = "Nelder-Mead")
-  return(out)
-}
 
+msgarchfit <- function(spec, data) {
+  is_error <- TRUE
+  k <- 0
+  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
+  while (is_error == TRUE) {
+    k <- k + 1
+    tryCatch({
+      is_error <- FALSE
+      fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = FALSE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
+        out <- stats::optim(vPw, f_nll, spec = spec, data = data,
+          do.plm = do.plm, method = opt_methods[k])}))
+    },
+      error = function(e) {
+        is_error <- TRUE
+      })
+  }
+  return(fit_model)
+}
+        
 
 # Parse arguments if they exist
 if(length(args) > 0){
@@ -52,14 +66,6 @@ if (type == "BR") {
   sv_params <- c(1.74, 0.97, 0.18)
   ms_params <- c(0.01, 0.04, 0.92, 0.57, 0.03, 0.95, 0.73, 0.44)
 } 
-if (type == "BTC") {
-  # data <- logret(read.csv("./Data/BTCUSDT_1d.csv")[, "Close"]) * 100
-  garch_params <- c(0.14, 0.07, 0.93)
-  gas_params <- c(0.03, 0.22, 0.98)
-  sv_params <- c(2.47, 0.98, 0.17)
-  
-}
-
 if (type == "US") {
   # data <- logret(read.csv("./Data/precos_diarios_nyse.csv")[, "Close"]) * 100
   
@@ -113,42 +119,42 @@ for (i in 1:mc) {
   garch_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n), n.ahead = 1)))
   garch_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_garch_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   garch_sv_n <- median(predvola(predict(svsample(r_garch_sim_n), 1)))
-  garch_ms_n <- predict(FitML(ms_spec_n, r_garch_sim_n, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
-  
+  garch_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_n), nahead = 1)$vol
+
   garch_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_t), n.ahead = 1)))
   garch_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_garch_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   garch_sv_t <- median(predvola(predict(svtsample(r_garch_sim_t), 1)))
-  garch_ms_t <- predict(FitML(ms_spec_t, r_garch_sim_t, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  garch_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_t), nahead = 1)$vol
   
   gas_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_n), n.ahead = 1)))
   gas_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_gas_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   gas_sv_n <- median(predvola(predict(svsample(r_gas_sim_n), 1)))
-  gas_ms_n <- predict(FitML(ms_spec_n, r_gas_sim_n, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  gas_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_n), nahead = 1)$vol
   
   gas_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_t), n.ahead = 1)))
   gas_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_gas_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   gas_sv_t <- median(predvola(predict(svtsample(r_gas_sim_t), 1)))
-  gas_ms_t <- predict(FitML(ms_spec_t, r_gas_sim_t, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  gas_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_t), nahead = 1)$vol
   
   sv_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_n), n.ahead = 1)))
   sv_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_sv_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   sv_sv_n <- median(predvola(predict(svsample(r_sv_sim_n), 1)))
-  sv_ms_n <- predict(FitML(ms_spec_n, r_sv_sim_n, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  sv_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_n), nahead = 1)$vol
   
   sv_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t), n.ahead = 1)))
   sv_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_sv_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   sv_sv_t <- median(predvola(predict(svtsample(r_sv_sim_t), 1)))
-  sv_ms_t <- predict(FitML(ms_spec_t, r_sv_sim_t, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  sv_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_t), nahead = 1)$vol
   
   ms_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_n), n.ahead = 1)))
   ms_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_ms_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   ms_sv_n <- median(predvola(predict(svsample(r_ms_sim_n), 1)))
-  ms_ms_n <- predict(FitML(ms_spec_n, r_ms_sim_n, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  ms_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_n), nahead = 1)$vol
   
   ms_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_t), n.ahead = 1)))
   ms_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_ms_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
   ms_sv_t <- median(predvola(predict(svtsample(r_ms_sim_t), 1)))
-  ms_ms_t <- predict(FitML(ms_spec_t, r_ms_sim_t, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = f_custom_optim)), nahead = 1)$vol
+  ms_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_t), nahead = 1)$vol
   
   true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(gas_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$CondVol[, 1, as.numeric(tail(ms_sim_n$state, 1))], 1))
   true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(gas_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$CondVol[, 1, as.numeric(tail(ms_sim_t$state, 1))], 1))

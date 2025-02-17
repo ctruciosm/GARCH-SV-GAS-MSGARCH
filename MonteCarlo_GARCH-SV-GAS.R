@@ -18,15 +18,18 @@ msgarchfit <- function(spec, data) {
   opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
   while (is_error == TRUE) {
     k <- k + 1
-    tryCatch({
-      is_error <- FALSE
-      fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = FALSE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
+    tryCatch(
+      expr <- {
+       fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = FALSE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
         out <- stats::optim(vPw, f_nll, spec = spec, data = data,
           do.plm = do.plm, method = opt_methods[k])}))
     },
       error = function(e) {
         is_error <- TRUE
       })
+    if (!is.null(expr)) {
+      is_error <- FALSE
+   }
   }
   return(fit_model)
 }

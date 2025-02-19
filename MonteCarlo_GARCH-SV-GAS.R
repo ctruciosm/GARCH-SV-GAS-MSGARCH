@@ -16,6 +16,7 @@ msgarchfit <- function(spec, data) {
   is_error <- TRUE
   k <- 0
   opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
+  expr <- NULL
   while (is_error == TRUE) {
     k <- k + 1
     tryCatch(

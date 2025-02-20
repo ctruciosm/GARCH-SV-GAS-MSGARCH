@@ -28,3 +28,45 @@ metrics <- function(h_hat, h) {
 }
 
 
+probability_regime_given_time_n <- function(p, q, sigma, r, Pt) {
+  numA <- (1 - q) * dnorm(r, 0, sigma[2]) * (1 - Pt)
+  numB <- p * dnorm(r, 0, sigma[1]) * Pt
+  deno <- dnorm(r, 0, sigma[1]) * Pt + dnorm(r, 0, sigma[2]) * (1 - Pt)
+  l <- numA / deno + numB / deno
+  return(l)
+}
+
+
+probability_regime_given_time_t <- function(p, q, sigma, r, Pt, nu) {
+  numA <- (1 - q) * sqrt(nu / (nu - 2)) / sigma[2] * dt(r * sqrt(nu / (nu - 2)) / sigma[2], nu) * (1 - Pt)
+  numB <- p * sqrt(nu / (nu - 2)) / sigma[1] * dt(r * sqrt(nu / (nu - 2)) / sigma[1], nu) * Pt
+  deno <- sqrt(nu / (nu - 2)) / sigma[1] * dt(r * sqrt(nu / (nu - 2)) / sigma[1], nu) * Pt +
+    sqrt(nu / (nu - 2)) / sigma[2] * dt(r * sqrt(nu / (nu - 2)) / sigma[2], nu) * (1 - Pt)
+  l <- numA / deno + numB / deno
+  return(l)
+}
+
+
+msgarchfit <- function(spec, data) {
+  is_error <- TRUE
+  k <- 0
+  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
+  expr <- NULL
+  while (is_error == TRUE) {
+    k <- k + 1
+    tryCatch(
+      expr <- {
+        fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = FALSE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
+          out <- stats::optim(vPw, f_nll, spec = spec, data = data,
+            do.plm = do.plm, method = opt_methods[k])}))
+      },
+      error = function(e) {
+        is_error <- TRUE
+      })
+    if (!is.null(expr)) {
+      is_error <- FALSE
+    }
+  }
+  return(fit_model)
+}
+

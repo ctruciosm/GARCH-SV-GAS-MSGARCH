@@ -7,34 +7,10 @@ library(GAS)
 library(stochvol)
 library(MSGARCH)
 source("DGPs.R")
+source("Utils_GARCH-GAS-SV.R")
 
 ## Setting values
 mc <- 1000
-
-
-msgarchfit <- function(spec, data) {
-  is_error <- TRUE
-  k <- 0
-  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
-  expr <- NULL
-  while (is_error == TRUE) {
-    k <- k + 1
-    tryCatch(
-      expr <- {
-       fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = FALSE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
-        out <- stats::optim(vPw, f_nll, spec = spec, data = data,
-          do.plm = do.plm, method = opt_methods[k])}))
-    },
-      error = function(e) {
-        is_error <- TRUE
-      })
-    if (!is.null(expr)) {
-      is_error <- FALSE
-   }
-  }
-  return(fit_model)
-}
-        
 
 # Parse arguments if they exist
 if(length(args) > 0){
@@ -65,16 +41,17 @@ ms_spec_n <- CreateSpec(variance.spec = list(model = c("sGARCH","sGARCH")), swit
 
 if (type == "BR") {
   # data <- logret(read.csv("./Data/precos_diarios_ibrx.csv")[, "PETR4"]) * 100
+  # data <- logret(read.csv("./Data/BTCUSDT_1d.csv")[, "Close"]) * 100
   garch_params <- c(0.18, 0.09, 0.89)
   gas_params <- c(0.03, 0.22, 0.98)
   sv_params <- c(1.74, 0.97, 0.18)
-  ms_params <- c(0.01, 0.04, 0.92, 0.57, 0.03, 0.95, 0.73, 0.44)
+  ms_params <- c(0.005, 0.04, 0.92, 0.579, 0.03, 0.95)
+  P <- matrix(c(0.73, 0.27, 0.44, 0.56), 2, 2, byrow = TRUE)
 } 
 if (type == "US") {
   # data <- logret(read.csv("./Data/precos_diarios_nyse.csv")[, "Close"]) * 100
   
 }
-
 
 true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
 fore_vols_n <- matrix(NA, ncol = 16, nrow = mc)
@@ -87,23 +64,23 @@ for (i in 1:mc) {
   garch_sim_n <- garch_sim(2500 + 1, garch_params, "norm")
   gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
   sv_sim_n <- sv_sim(2500 + 1, sv_params, "norm")
-  ms_sim_n <- simulate(object = ms_spec_n, nsim = 1L, nahead = 2500 + 1, nburn = 500L, par = ms_params)
+  ms_sim_n <- msgarch_sim(2500 + 1, ms_params, "norm", P)
     
   garch_sim_t <- garch_sim(2500 + 1, c(garch_params, 7), "std")
   gas_sim_t <- gas_sim(2500 + 1, c(gas_params, -2.6625878), "std")
   sv_sim_t <- sv_sim(2500 + 1, c(sv_params, 7), "std")  
-  ms_sim_t <- simulate(object = ms_spec_t, nsim = 1L, nahead = 2500 + 1, nburn = 500L, par = c(ms_params[1:3], 7, ms_params[4:6], 7, ms_params[7:8]))
+  ms_sim_t <- msgarch_sim(2500 + 1, c(ms_params, 7), "std", P)
   
 
   r_garch_sim_n <- tail(garch_sim_n$returns, n + 1)[1:n]
   r_gas_sim_n <- tail(gas_sim_n$returns, n + 1)[1:n]
   r_sv_sim_n <- tail(sv_sim_n$returns, n + 1)[1:n]
-  r_ms_sim_n <- tail(ms_sim_n$draw, n + 1)[1:n]
+  r_ms_sim_n <- tail(ms_sim_n$returns, n + 1)[1:n]
   
   r_garch_sim_t <- tail(garch_sim_t$returns, n + 1)[1:n]
   r_gas_sim_t <- tail(gas_sim_t$returns, n + 1)[1:n]
   r_sv_sim_t <- tail(sv_sim_t$returns, n + 1)[1:n]
-  r_ms_sim_t <- tail(ms_sim_t$draw, n + 1)[1:n]
+  r_ms_sim_t <- tail(ms_sim_t$returns, n + 1)[1:n]
   
   
   if (outliers == "TRUE") {
@@ -160,8 +137,8 @@ for (i in 1:mc) {
   ms_sv_t <- median(predvola(predict(svtsample(r_ms_sim_t), 1)))
   ms_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_t), nahead = 1)$vol
   
-  true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(gas_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$CondVol[, 1, as.numeric(tail(ms_sim_n$state, 1))], 1))
-  true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(gas_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$CondVol[, 1, as.numeric(tail(ms_sim_t$state, 1))], 1))
+  true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(gas_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$volatility[, 3], 1))
+  true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(gas_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$volatility[, 3], 1))
   fore_vols_n[i, ] <- c(garch_garch_n, garch_gas_n, garch_sv_n, garch_ms_n, gas_garch_n, gas_gas_n, gas_sv_n, gas_ms_n, sv_garch_n, sv_gas_n, sv_sv_n, sv_ms_n, ms_garch_n, ms_gas_n, ms_sv_n, ms_ms_n)
   fore_vols_t[i, ] <- c(garch_garch_t, garch_gas_t, garch_sv_t, garch_ms_t, gas_garch_t, gas_gas_t, gas_sv_t, gas_ms_t, sv_garch_t, sv_gas_t, sv_sv_t, sv_ms_t, ms_garch_t, ms_gas_t, ms_sv_t, ms_ms_t)
 }

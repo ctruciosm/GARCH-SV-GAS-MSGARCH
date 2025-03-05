@@ -25,9 +25,9 @@ if(length(args) > 0){
     }
   }
 } else {
-  n <- 500
+  n <- 2500
   type <- "BR"
-  outliers <-  "TRUE"
+  outliers <-  "FALSE"
 }
 
 
@@ -104,78 +104,78 @@ for (i in 1:mc) {
   }
   
   # Fit the models
-  garch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n), n.ahead = 1)))
-  garch_n_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_garch_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  garch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
+  garch_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_n), H = 1)@Forecast$PointForecast[, 2])
   garch_n_sv_n <- median(predvola(predict(svsample(r_garch_sim_n), 1)))
   garch_n_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_n), nahead = 1)$vol
-  garch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_n), n.ahead = 1)))
-  garch_n_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_garch_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  garch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
+  garch_n_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_garch_sim_n), H = 1)@Forecast$PointForecast[, 2])
   garch_n_sv_t <- median(predvola(predict(svtsample(r_garch_sim_n), 1)))
   garch_n_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_n), nahead = 1)$vol
 
-  garch_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_t), n.ahead = 1)))
-  garch_t_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_garch_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  garch_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
+  garch_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_t), H = 1)@Forecast$PointForecast[, 2])
   garch_t_sv_n <- median(predvola(predict(svsample(r_garch_sim_t), 1)))
   garch_t_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_t), nahead = 1)$vol
-  garch_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_t), n.ahead = 1)))
-  garch_t_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_garch_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  garch_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
+  garch_t_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_garch_sim_t), H = 1)@Forecast$PointForecast[, 2])
   garch_t_sv_t <- median(predvola(predict(svtsample(r_garch_sim_t), 1)))
   garch_t_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_t), nahead = 1)$vol
   
   
-  gas_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_n), n.ahead = 1)))
-  gas_n_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_gas_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  gas_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
+  gas_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_n), H = 1)@Forecast$PointForecast[, 2])
   gas_n_sv_n <- median(predvola(predict(svsample(r_gas_sim_n), 1)))
   gas_n_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_n), nahead = 1)$vol
-  gas_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_n), n.ahead = 1)))
-  gas_n_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_gas_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  gas_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
+  gas_n_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_gas_sim_n), H = 1)@Forecast$PointForecast[, 2])
   gas_n_sv_t <- median(predvola(predict(svtsample(r_gas_sim_n), 1)))
   gas_n_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_n), nahead = 1)$vol
   
-  gas_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_t), n.ahead = 1)))
-  gas_t_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_gas_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  gas_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
+  gas_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_t), H = 1)@Forecast$PointForecast[, 2])
   gas_t_sv_n <- median(predvola(predict(svsample(r_gas_sim_t), 1)))
   gas_t_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_t), nahead = 1)$vol
-  gas_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_t), n.ahead = 1)))
-  gas_t_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_gas_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  gas_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
+  gas_t_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_gas_sim_t), H = 1)@Forecast$PointForecast[, 2])
   gas_t_sv_t <- median(predvola(predict(svtsample(r_gas_sim_t), 1)))
   gas_t_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_t), nahead = 1)$vol
   
   
-  sv_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_n), n.ahead = 1)))
-  sv_n_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_sv_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  sv_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
+  sv_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_n), H = 1)@Forecast$PointForecast[, 2])
   sv_n_sv_n <- median(predvola(predict(svsample(r_sv_sim_n), 1)))
   sv_n_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_n), nahead = 1)$vol
-  sv_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_n), n.ahead = 1)))
-  sv_n_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_sv_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  sv_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
+  sv_n_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_sv_sim_n), H = 1)@Forecast$PointForecast[, 2])
   sv_n_sv_t <- median(predvola(predict(svtsample(r_sv_sim_n), 1)))
   sv_n_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_n), nahead = 1)$vol
   
-  sv_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_t), n.ahead = 1)))
-  sv_t_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_sv_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  sv_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
+  sv_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_t), H = 1)@Forecast$PointForecast[, 2])
   sv_t_sv_n <- median(predvola(predict(svsample(r_sv_sim_t), 1)))
   sv_t_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_t), nahead = 1)$vol
-  sv_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t), n.ahead = 1)))
-  sv_t_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_sv_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  sv_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
+  sv_t_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_sv_sim_t), H = 1)@Forecast$PointForecast[, 2])
   sv_t_sv_t <- median(predvola(predict(svtsample(r_sv_sim_t), 1)))
   sv_t_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_t), nahead = 1)$vol
   
   
-  ms_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_n), n.ahead = 1)))
-  ms_n_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_ms_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  ms_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
+  ms_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_n), H = 1)@Forecast$PointForecast[, 2])
   ms_n_sv_n <- median(predvola(predict(svsample(r_ms_sim_n), 1)))
   ms_n_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_n), nahead = 1)$vol
-  ms_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_n), n.ahead = 1)))
-  ms_n_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_ms_sim_n, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  ms_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
+  ms_n_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_ms_sim_n), H = 1)@Forecast$PointForecast[, 2])
   ms_n_sv_t <- median(predvola(predict(svtsample(r_ms_sim_n), 1)))
   ms_n_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_n), nahead = 1)$vol
   
-  ms_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_t), n.ahead = 1)))
-  ms_t_gas_n <- sqrt(UniGASFor(UniGASFit(gas_spec_n, r_ms_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  ms_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
+  ms_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_t), H = 1)@Forecast$PointForecast[, 2])
   ms_t_sv_n <- median(predvola(predict(svsample(r_ms_sim_t), 1)))
   ms_t_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_t), nahead = 1)$vol
-  ms_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_t), n.ahead = 1)))
-  ms_t_gas_t <- sqrt(UniGASFor(UniGASFit(gas_spec_t, r_ms_sim_t, Compute.SE = FALSE), H = 1)@Forecast$PointForecast[, 2])
+  ms_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
+  ms_t_gas_t <- sqrt(UniGASFor(gasfit(gas_spec_t, r_ms_sim_t), H = 1)@Forecast$PointForecast[, 2])
   ms_t_sv_t <- median(predvola(predict(svtsample(r_ms_sim_t), 1)))
   ms_t_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_t), nahead = 1)$vol
   

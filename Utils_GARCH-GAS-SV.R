@@ -52,7 +52,7 @@ msgarchfit <- function(spec, data) {
   k <- 0
   opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
   expr <- NULL
-  while (is_error == TRUE) {
+  while (is_error == TRUE && k <4) {
     k <- k + 1
     tryCatch(
       expr <- {
@@ -67,6 +67,59 @@ msgarchfit <- function(spec, data) {
       is_error <- FALSE
     }
   }
+  if (is_error == TRUE) {
+    k <- 0
+    expr <- NULL
+    while (is_error == TRUE && k <4) {
+      k <- k + 1
+      tryCatch(
+        expr <- {
+          fit_model <- FitML(spec, data, ctr = list(do.se = FALSE, do.plm = TRUE, OptimFUN = function(vPw, f_nll, spec, data, do.plm){
+            out <- stats::optim(vPw, f_nll, spec = spec, data = data,
+              do.plm = do.plm, method = opt_methods[k])}))
+        },
+        error = function(e) {
+          is_error <- TRUE
+        })
+      if (!is.null(expr)) {
+        is_error <- FALSE
+      }
+    }
+  }
   return(fit_model)
 }
+
+
+
+
+
+gasfit <- function(spec, data) {
+  is_error <- TRUE
+  k <- 0
+  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
+  expr <- NULL
+  while (is_error == TRUE) {
+    k <- k + 1
+    tryCatch(
+      expr <- {
+        fit_model <- UniGASFit(spec, data, Compute.SE = FALSE, fn.optimizer = function(par0, data, GASSpec, FUN) {
+          optimizer = optim(par0, FUN, data = data, GASSpec = GASSpec, method = opt_methods[k],
+            control = list(trace = 0), hessian = FALSE)
+          out = list(pars = optimizer$par,
+            value = optimizer$value,
+            hessian = optimizer$hessian,
+            convergence = optimizer$convergence)
+          return(out)
+        })
+      },
+      error = function(e) {
+        is_error <- TRUE
+      })
+    if (!is.null(expr)) {
+      is_error <- FALSE
+    }
+  }
+  return(fit_model)
+}
+
 

@@ -72,13 +72,15 @@ gas_sim <- function(n, params, distri) {
     B <- diag(c(0.0, params[3]))
     k <- c(0, params[1])
     Sim <- UniGASSim(T.sim = n_tot, kappa = k, A = A, B = B, Dist = "norm", ScalingType = "Identity")
+    out <- list(returns = Sim@GASDyn$vY[-c(1:n_burnin)], volatility = head(sqrt(Sim@GASDyn$mTheta[2, -c(1:n_burnin)]), n), e = Sim@GASDyn$mInnovations[1,-c(1:n_burnin)])
   } else {
     A <- diag(c(0.0, params[2], 0.0))
     B <- diag(c(0.0, params[3], 0.0))
     k <- c(0, params[1], params[4])
     Sim <- UniGASSim(T.sim = n_tot, kappa = k, A = A, B = B, Dist = "std", ScalingType = "Identity")
+    out <- list(returns = Sim@GASDyn$vY[-c(1:n_burnin)], volatility = head(sqrt(Sim@GASDyn$mTheta[2, -c(1:n_burnin)]) * sqrt(7/5), n), e = Sim@GASDyn$mInnovations[1,-c(1:n_burnin)]/sqrt(7/5))
   }
-  return(list(returns = Sim@GASDyn$vY[-c(1:n_burnin)], volatility = head(sqrt(Sim@GASDyn$mTheta[2, -c(1:n_burnin)]), n), e = Sim@GASDyn$mInnovations[1,-c(1:n_burnin)]))
+  return(out)
 }
 #dados <- gas_sim(100000, c(0.04, 0.22, 0.96, -2.6625878), "std"). # -2.6625878 is equivalento to 7 d.f
 

@@ -239,7 +239,7 @@ for (i in 1:mc) {
 }
 
 volatilities_n <- cbind(true_vols_n, fore_vols_n)
-volatilities_t <- cbind(ztrue_vols_t, fore_vols_t)
+volatilities_t <- cbind(true_vols_t, fore_vols_t)
 colnames(volatilities_n) <- c("garch", "gas", "sv", "ms",
   "garch_n_garch_n", "garch_n_garch_t", "garch_n_gas_n", "garch_n_gas_t", "garch_n_sv_n", "garch_n_sv_t", "garch_n_ms_n", "garch_n_ms_t",
   "gas_n_garch_n", "gas_n_garch_t", "gas_n_gas_n", "gas_n_gas_t", "gas_n_sv_n", "gas_n_sv_t", "gas_n_ms_n", "gas_n_ms_t",

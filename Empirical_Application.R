@@ -32,8 +32,9 @@ ms_spec_n <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), swi
 ms_spec_t <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), switch.spec = list(do.mix = FALSE), distribution.spec = list(distribution = c("std", "std")), constraint.spec = list(regime.const = c("nu")))
 
 
+garch_n_fore <- garch_t_fore <- gas_n_fore <- gas_t_fore <- ms_n_fore <- ms_t_fore <- sv_n_fore <- sv_t_fore <- sv_n_fore_b <- sv_t_fore_b <- matrix(0, nrow = oos, ncol = ncol(data) - 1)
 
-for (i in 1:mc) {
+for (i in 1:oos) {
   print(i)
   returns <- data[i:(i + ins - 1), -1]
   mu <- apply(returns, 2, mean)
@@ -114,4 +115,4 @@ write.csv(sv_n_fore_b, "sv_n_fore_b.csv")
 write.csv(sv_t_fore_b, "sv_t_fore_b.csv")
 write.csv(sv_n_fore, "sv_n_fore.csv")
 write.csv(sv_t_fore, "sv_t_fore.csv")
-write.csv(data[(1 + ins):nrow(data), -1], "datas_oos.csv")
+write.csv(data[(1 + ins):nrow(data), 1], "datas_oos.csv")

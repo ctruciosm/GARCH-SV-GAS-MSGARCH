@@ -105,12 +105,13 @@ making_tables <- function(files_names) {
   
   ########################     Plot       ########################################
   mc <- rbind(mc_5, mc_6, mc_1, mc_2, mc_3, mc_4) |>
-    mutate(ratio = simul / fore)
+    mutate(ratio = fore / simul)
   
   mc |>
     ggplot() +
     geom_boxplot(aes(y = ratio, x = factor(n), colour = model)) +
     facet_grid(distri ~ dgp, scales = "free_y") +
+    ylim(c(0, 10)) +
     labs(
       x = "Sample Size",
       y = expression(sigma[T + 1] / hat(sigma)[T + 1]),
@@ -417,14 +418,241 @@ making_tables <- function(files_names) {
   return(results)
 }
 
-files_false <- list.files(path = './MonteCarlo', pattern = '*FALSE_BR.csv', full.names = TRUE)
+
+making_plots <- functions(files_names_F, files_names_T) {
+  
+  # Outliers FALSE
+  data_mc <- list()
+  for (name in files_names_F) data_mc[[name]] <- read.csv(name)
+  
+  simul <- c(rep(data_mc[[1]][, "garch"], 8), rep(data_mc[[1]][, "gas"], 8), rep(data_mc[[1]][, "sv"], 8), rep(data_mc[[1]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[1]][, "garch_n_garch_n"], data_mc[[1]][, "garch_n_garch_t"], data_mc[[1]][, "garch_n_gas_n"], data_mc[[1]][, "garch_n_gas_t"],
+    data_mc[[1]][, "garch_n_sv_n"], data_mc[[1]][, "garch_n_sv_t"], data_mc[[1]][, "garch_n_ms_n"],  data_mc[[1]][, "garch_n_ms_t"],
+    data_mc[[1]][, "gas_n_garch_n"], data_mc[[1]][, "gas_n_garch_t"], data_mc[[1]][, "gas_n_gas_n"], data_mc[[1]][, "gas_n_gas_t"],
+    data_mc[[1]][, "gas_n_sv_n"], data_mc[[1]][, "gas_n_sv_t"], data_mc[[1]][, "gas_n_ms_n"], data_mc[[1]][, "gas_n_ms_t"],
+    data_mc[[1]][, "sv_n_garch_n"], data_mc[[1]][, "sv_n_garch_t"], data_mc[[1]][, "sv_n_gas_n"], data_mc[[1]][, "sv_n_gas_t"],
+    data_mc[[1]][, "sv_n_sv_n"], data_mc[[1]][, "sv_n_sv_t"], data_mc[[1]][, "sv_n_ms_n"], data_mc[[1]][, "sv_n_ms_t"],
+    data_mc[[1]][, "ms_n_garch_n"], data_mc[[1]][, "ms_n_garch_t"], data_mc[[1]][, "ms_n_gas_n"], data_mc[[1]][, "ms_n_gas_t"],
+    data_mc[[1]][, "ms_n_sv_n"], data_mc[[1]][, "ms_n_sv_t"], data_mc[[1]][, "ms_n_ms_n"], data_mc[[1]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(1000, 32000)
+  distri <- rep("N", 32000)
+  mc_1 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[2]][, "garch"], 8), rep(data_mc[[2]][, "gas"], 8), rep(data_mc[[2]][, "sv"], 8), rep(data_mc[[2]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[2]][, "garch_t_garch_n"], data_mc[[2]][, "garch_t_garch_t"], data_mc[[2]][, "garch_t_gas_n"], data_mc[[2]][, "garch_t_gas_t"],
+    data_mc[[2]][, "garch_t_sv_n"], data_mc[[2]][, "garch_t_sv_t"], data_mc[[2]][, "garch_t_ms_n"],  data_mc[[2]][, "garch_t_ms_t"],
+    data_mc[[2]][, "gas_t_garch_n"], data_mc[[2]][, "gas_t_garch_t"], data_mc[[2]][, "gas_t_gas_n"], data_mc[[2]][, "gas_t_gas_t"],
+    data_mc[[2]][, "gas_t_sv_n"], data_mc[[2]][, "gas_t_sv_t"], data_mc[[2]][, "gas_t_ms_n"], data_mc[[2]][, "gas_t_ms_t"],
+    data_mc[[2]][, "sv_t_garch_n"], data_mc[[2]][, "sv_t_garch_t"], data_mc[[2]][, "sv_t_gas_n"], data_mc[[2]][, "sv_t_gas_t"],
+    data_mc[[2]][, "sv_t_sv_n"], data_mc[[2]][, "sv_t_sv_t"], data_mc[[2]][, "sv_t_ms_n"], data_mc[[2]][, "sv_t_ms_t"],
+    data_mc[[2]][, "ms_t_garch_n"], data_mc[[2]][, "ms_t_garch_t"], data_mc[[2]][, "ms_t_gas_n"], data_mc[[2]][, "ms_t_gas_t"],
+    data_mc[[2]][, "ms_t_sv_n"], data_mc[[2]][, "ms_t_sv_t"], data_mc[[2]][, "ms_t_ms_n"], data_mc[[2]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(1000, 32000)
+  distri <- rep("T", 32000)
+  mc_2 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[3]][, "garch"], 8), rep(data_mc[[3]][, "gas"], 8), rep(data_mc[[3]][, "sv"], 8), rep(data_mc[[3]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[3]][, "garch_n_garch_n"], data_mc[[3]][, "garch_n_garch_t"], data_mc[[3]][, "garch_n_gas_n"], data_mc[[3]][, "garch_n_gas_t"],
+    data_mc[[3]][, "garch_n_sv_n"], data_mc[[3]][, "garch_n_sv_t"], data_mc[[3]][, "garch_n_ms_n"],  data_mc[[3]][, "garch_n_ms_t"],
+    data_mc[[3]][, "gas_n_garch_n"], data_mc[[3]][, "gas_n_garch_t"], data_mc[[3]][, "gas_n_gas_n"], data_mc[[3]][, "gas_n_gas_t"],
+    data_mc[[3]][, "gas_n_sv_n"], data_mc[[3]][, "gas_n_sv_t"], data_mc[[3]][, "gas_n_ms_n"], data_mc[[3]][, "gas_n_ms_t"],
+    data_mc[[3]][, "sv_n_garch_n"], data_mc[[3]][, "sv_n_garch_t"], data_mc[[3]][, "sv_n_gas_n"], data_mc[[3]][, "sv_n_gas_t"],
+    data_mc[[3]][, "sv_n_sv_n"], data_mc[[3]][, "sv_n_sv_t"], data_mc[[3]][, "sv_n_ms_n"], data_mc[[3]][, "sv_n_ms_t"],
+    data_mc[[3]][, "ms_n_garch_n"], data_mc[[3]][, "ms_n_garch_t"], data_mc[[3]][, "ms_n_gas_n"], data_mc[[3]][, "ms_n_gas_t"],
+    data_mc[[3]][, "ms_n_sv_n"], data_mc[[3]][, "ms_n_sv_t"], data_mc[[3]][, "ms_n_ms_n"], data_mc[[3]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(2500, 32000)
+  distri <- rep("N", 32000)
+  mc_3 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[4]][, "garch"], 8), rep(data_mc[[4]][, "gas"], 8), rep(data_mc[[4]][, "sv"], 8), rep(data_mc[[4]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[4]][, "garch_t_garch_n"], data_mc[[4]][, "garch_t_garch_t"], data_mc[[4]][, "garch_t_gas_n"], data_mc[[4]][, "garch_t_gas_t"],
+    data_mc[[4]][, "garch_t_sv_n"], data_mc[[4]][, "garch_t_sv_t"], data_mc[[4]][, "garch_t_ms_n"],  data_mc[[4]][, "garch_t_ms_t"],
+    data_mc[[4]][, "gas_t_garch_n"], data_mc[[4]][, "gas_t_garch_t"], data_mc[[4]][, "gas_t_gas_n"], data_mc[[4]][, "gas_t_gas_t"],
+    data_mc[[4]][, "gas_t_sv_n"], data_mc[[4]][, "gas_t_sv_t"], data_mc[[4]][, "gas_t_ms_n"], data_mc[[4]][, "gas_t_ms_t"],
+    data_mc[[4]][, "sv_t_garch_n"], data_mc[[4]][, "sv_t_garch_t"], data_mc[[4]][, "sv_t_gas_n"], data_mc[[4]][, "sv_t_gas_t"],
+    data_mc[[4]][, "sv_t_sv_n"], data_mc[[4]][, "sv_t_sv_t"], data_mc[[4]][, "sv_t_ms_n"], data_mc[[4]][, "sv_t_ms_t"],
+    data_mc[[4]][, "ms_t_garch_n"], data_mc[[4]][, "ms_t_garch_t"], data_mc[[4]][, "ms_t_gas_n"], data_mc[[4]][, "ms_t_gas_t"],
+    data_mc[[4]][, "ms_t_sv_n"], data_mc[[4]][, "ms_t_sv_t"], data_mc[[4]][, "ms_t_ms_n"], data_mc[[4]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(2500, 32000)
+  distri <- rep("T", 32000)
+  mc_4 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[5]][, "garch"], 8), rep(data_mc[[5]][, "gas"], 8), rep(data_mc[[5]][, "sv"], 8), rep(data_mc[[5]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[5]][, "garch_n_garch_n"], data_mc[[5]][, "garch_n_garch_t"], data_mc[[5]][, "garch_n_gas_n"], data_mc[[5]][, "garch_n_gas_t"],
+    data_mc[[5]][, "garch_n_sv_n"], data_mc[[5]][, "garch_n_sv_t"], data_mc[[5]][, "garch_n_ms_n"],  data_mc[[5]][, "garch_n_ms_t"],
+    data_mc[[5]][, "gas_n_garch_n"], data_mc[[5]][, "gas_n_garch_t"], data_mc[[5]][, "gas_n_gas_n"], data_mc[[5]][, "gas_n_gas_t"],
+    data_mc[[5]][, "gas_n_sv_n"], data_mc[[5]][, "gas_n_sv_t"], data_mc[[5]][, "gas_n_ms_n"], data_mc[[5]][, "gas_n_ms_t"],
+    data_mc[[5]][, "sv_n_garch_n"], data_mc[[5]][, "sv_n_garch_t"], data_mc[[5]][, "sv_n_gas_n"], data_mc[[5]][, "sv_n_gas_t"],
+    data_mc[[5]][, "sv_n_sv_n"], data_mc[[5]][, "sv_n_sv_t"], data_mc[[5]][, "sv_n_ms_n"], data_mc[[5]][, "sv_n_ms_t"],
+    data_mc[[5]][, "ms_n_garch_n"], data_mc[[5]][, "ms_n_garch_t"], data_mc[[5]][, "ms_n_gas_n"], data_mc[[5]][, "ms_n_gas_t"],
+    data_mc[[5]][, "ms_n_sv_n"], data_mc[[5]][, "ms_n_sv_t"], data_mc[[5]][, "ms_n_ms_n"], data_mc[[5]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(500, 32000)
+  distri <- rep("N", 32000)
+  mc_5 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[6]][, "garch"], 8), rep(data_mc[[6]][, "gas"], 8), rep(data_mc[[6]][, "sv"], 8), rep(data_mc[[6]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[6]][, "garch_t_garch_n"], data_mc[[6]][, "garch_t_garch_t"], data_mc[[6]][, "garch_t_gas_n"], data_mc[[6]][, "garch_t_gas_t"],
+    data_mc[[6]][, "garch_t_sv_n"], data_mc[[6]][, "garch_t_sv_t"], data_mc[[6]][, "garch_t_ms_n"],  data_mc[[6]][, "garch_t_ms_t"],
+    data_mc[[6]][, "gas_t_garch_n"], data_mc[[6]][, "gas_t_garch_t"], data_mc[[6]][, "gas_t_gas_n"], data_mc[[6]][, "gas_t_gas_t"],
+    data_mc[[6]][, "gas_t_sv_n"], data_mc[[6]][, "gas_t_sv_t"], data_mc[[6]][, "gas_t_ms_n"], data_mc[[6]][, "gas_t_ms_t"],
+    data_mc[[6]][, "sv_t_garch_n"], data_mc[[6]][, "sv_t_garch_t"], data_mc[[6]][, "sv_t_gas_n"], data_mc[[6]][, "sv_t_gas_t"],
+    data_mc[[6]][, "sv_t_sv_n"], data_mc[[6]][, "sv_t_sv_t"], data_mc[[6]][, "sv_t_ms_n"], data_mc[[6]][, "sv_t_ms_t"],
+    data_mc[[6]][, "ms_t_garch_n"], data_mc[[6]][, "ms_t_garch_t"], data_mc[[6]][, "ms_t_gas_n"], data_mc[[6]][, "ms_t_gas_t"],
+    data_mc[[6]][, "ms_t_sv_n"], data_mc[[6]][, "ms_t_sv_t"], data_mc[[6]][, "ms_t_ms_n"], data_mc[[6]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(500, 32000)
+  distri <- rep("T", 32000)
+  mc_6 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  mc_FALSE <- rbind(mc_5, mc_6, mc_1, mc_2, mc_3, mc_4) |>  mutate(ratio = simul/fore, outliers = FALSE)
+  
+  
+  # Outliers TRUE
+  data_mc <- list()
+  for (name in files_names_T) data_mc[[name]] <- read.csv(name)
+  
+  simul <- c(rep(data_mc[[1]][, "garch"], 8), rep(data_mc[[1]][, "gas"], 8), rep(data_mc[[1]][, "sv"], 8), rep(data_mc[[1]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[1]][, "garch_n_garch_n"], data_mc[[1]][, "garch_n_garch_t"], data_mc[[1]][, "garch_n_gas_n"], data_mc[[1]][, "garch_n_gas_t"],
+    data_mc[[1]][, "garch_n_sv_n"], data_mc[[1]][, "garch_n_sv_t"], data_mc[[1]][, "garch_n_ms_n"],  data_mc[[1]][, "garch_n_ms_t"],
+    data_mc[[1]][, "gas_n_garch_n"], data_mc[[1]][, "gas_n_garch_t"], data_mc[[1]][, "gas_n_gas_n"], data_mc[[1]][, "gas_n_gas_t"],
+    data_mc[[1]][, "gas_n_sv_n"], data_mc[[1]][, "gas_n_sv_t"], data_mc[[1]][, "gas_n_ms_n"], data_mc[[1]][, "gas_n_ms_t"],
+    data_mc[[1]][, "sv_n_garch_n"], data_mc[[1]][, "sv_n_garch_t"], data_mc[[1]][, "sv_n_gas_n"], data_mc[[1]][, "sv_n_gas_t"],
+    data_mc[[1]][, "sv_n_sv_n"], data_mc[[1]][, "sv_n_sv_t"], data_mc[[1]][, "sv_n_ms_n"], data_mc[[1]][, "sv_n_ms_t"],
+    data_mc[[1]][, "ms_n_garch_n"], data_mc[[1]][, "ms_n_garch_t"], data_mc[[1]][, "ms_n_gas_n"], data_mc[[1]][, "ms_n_gas_t"],
+    data_mc[[1]][, "ms_n_sv_n"], data_mc[[1]][, "ms_n_sv_t"], data_mc[[1]][, "ms_n_ms_n"], data_mc[[1]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(1000, 32000)
+  distri <- rep("N", 32000)
+  mc_1 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[2]][, "garch"], 8), rep(data_mc[[2]][, "gas"], 8), rep(data_mc[[2]][, "sv"], 8), rep(data_mc[[2]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[2]][, "garch_t_garch_n"], data_mc[[2]][, "garch_t_garch_t"], data_mc[[2]][, "garch_t_gas_n"], data_mc[[2]][, "garch_t_gas_t"],
+    data_mc[[2]][, "garch_t_sv_n"], data_mc[[2]][, "garch_t_sv_t"], data_mc[[2]][, "garch_t_ms_n"],  data_mc[[2]][, "garch_t_ms_t"],
+    data_mc[[2]][, "gas_t_garch_n"], data_mc[[2]][, "gas_t_garch_t"], data_mc[[2]][, "gas_t_gas_n"], data_mc[[2]][, "gas_t_gas_t"],
+    data_mc[[2]][, "gas_t_sv_n"], data_mc[[2]][, "gas_t_sv_t"], data_mc[[2]][, "gas_t_ms_n"], data_mc[[2]][, "gas_t_ms_t"],
+    data_mc[[2]][, "sv_t_garch_n"], data_mc[[2]][, "sv_t_garch_t"], data_mc[[2]][, "sv_t_gas_n"], data_mc[[2]][, "sv_t_gas_t"],
+    data_mc[[2]][, "sv_t_sv_n"], data_mc[[2]][, "sv_t_sv_t"], data_mc[[2]][, "sv_t_ms_n"], data_mc[[2]][, "sv_t_ms_t"],
+    data_mc[[2]][, "ms_t_garch_n"], data_mc[[2]][, "ms_t_garch_t"], data_mc[[2]][, "ms_t_gas_n"], data_mc[[2]][, "ms_t_gas_t"],
+    data_mc[[2]][, "ms_t_sv_n"], data_mc[[2]][, "ms_t_sv_t"], data_mc[[2]][, "ms_t_ms_n"], data_mc[[2]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(1000, 32000)
+  distri <- rep("T", 32000)
+  mc_2 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[3]][, "garch"], 8), rep(data_mc[[3]][, "gas"], 8), rep(data_mc[[3]][, "sv"], 8), rep(data_mc[[3]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[3]][, "garch_n_garch_n"], data_mc[[3]][, "garch_n_garch_t"], data_mc[[3]][, "garch_n_gas_n"], data_mc[[3]][, "garch_n_gas_t"],
+    data_mc[[3]][, "garch_n_sv_n"], data_mc[[3]][, "garch_n_sv_t"], data_mc[[3]][, "garch_n_ms_n"],  data_mc[[3]][, "garch_n_ms_t"],
+    data_mc[[3]][, "gas_n_garch_n"], data_mc[[3]][, "gas_n_garch_t"], data_mc[[3]][, "gas_n_gas_n"], data_mc[[3]][, "gas_n_gas_t"],
+    data_mc[[3]][, "gas_n_sv_n"], data_mc[[3]][, "gas_n_sv_t"], data_mc[[3]][, "gas_n_ms_n"], data_mc[[3]][, "gas_n_ms_t"],
+    data_mc[[3]][, "sv_n_garch_n"], data_mc[[3]][, "sv_n_garch_t"], data_mc[[3]][, "sv_n_gas_n"], data_mc[[3]][, "sv_n_gas_t"],
+    data_mc[[3]][, "sv_n_sv_n"], data_mc[[3]][, "sv_n_sv_t"], data_mc[[3]][, "sv_n_ms_n"], data_mc[[3]][, "sv_n_ms_t"],
+    data_mc[[3]][, "ms_n_garch_n"], data_mc[[3]][, "ms_n_garch_t"], data_mc[[3]][, "ms_n_gas_n"], data_mc[[3]][, "ms_n_gas_t"],
+    data_mc[[3]][, "ms_n_sv_n"], data_mc[[3]][, "ms_n_sv_t"], data_mc[[3]][, "ms_n_ms_n"], data_mc[[3]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(2500, 32000)
+  distri <- rep("N", 32000)
+  mc_3 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[4]][, "garch"], 8), rep(data_mc[[4]][, "gas"], 8), rep(data_mc[[4]][, "sv"], 8), rep(data_mc[[4]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[4]][, "garch_t_garch_n"], data_mc[[4]][, "garch_t_garch_t"], data_mc[[4]][, "garch_t_gas_n"], data_mc[[4]][, "garch_t_gas_t"],
+    data_mc[[4]][, "garch_t_sv_n"], data_mc[[4]][, "garch_t_sv_t"], data_mc[[4]][, "garch_t_ms_n"],  data_mc[[4]][, "garch_t_ms_t"],
+    data_mc[[4]][, "gas_t_garch_n"], data_mc[[4]][, "gas_t_garch_t"], data_mc[[4]][, "gas_t_gas_n"], data_mc[[4]][, "gas_t_gas_t"],
+    data_mc[[4]][, "gas_t_sv_n"], data_mc[[4]][, "gas_t_sv_t"], data_mc[[4]][, "gas_t_ms_n"], data_mc[[4]][, "gas_t_ms_t"],
+    data_mc[[4]][, "sv_t_garch_n"], data_mc[[4]][, "sv_t_garch_t"], data_mc[[4]][, "sv_t_gas_n"], data_mc[[4]][, "sv_t_gas_t"],
+    data_mc[[4]][, "sv_t_sv_n"], data_mc[[4]][, "sv_t_sv_t"], data_mc[[4]][, "sv_t_ms_n"], data_mc[[4]][, "sv_t_ms_t"],
+    data_mc[[4]][, "ms_t_garch_n"], data_mc[[4]][, "ms_t_garch_t"], data_mc[[4]][, "ms_t_gas_n"], data_mc[[4]][, "ms_t_gas_t"],
+    data_mc[[4]][, "ms_t_sv_n"], data_mc[[4]][, "ms_t_sv_t"], data_mc[[4]][, "ms_t_ms_n"], data_mc[[4]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(2500, 32000)
+  distri <- rep("T", 32000)
+  mc_4 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[5]][, "garch"], 8), rep(data_mc[[5]][, "gas"], 8), rep(data_mc[[5]][, "sv"], 8), rep(data_mc[[5]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[5]][, "garch_n_garch_n"], data_mc[[5]][, "garch_n_garch_t"], data_mc[[5]][, "garch_n_gas_n"], data_mc[[5]][, "garch_n_gas_t"],
+    data_mc[[5]][, "garch_n_sv_n"], data_mc[[5]][, "garch_n_sv_t"], data_mc[[5]][, "garch_n_ms_n"],  data_mc[[5]][, "garch_n_ms_t"],
+    data_mc[[5]][, "gas_n_garch_n"], data_mc[[5]][, "gas_n_garch_t"], data_mc[[5]][, "gas_n_gas_n"], data_mc[[5]][, "gas_n_gas_t"],
+    data_mc[[5]][, "gas_n_sv_n"], data_mc[[5]][, "gas_n_sv_t"], data_mc[[5]][, "gas_n_ms_n"], data_mc[[5]][, "gas_n_ms_t"],
+    data_mc[[5]][, "sv_n_garch_n"], data_mc[[5]][, "sv_n_garch_t"], data_mc[[5]][, "sv_n_gas_n"], data_mc[[5]][, "sv_n_gas_t"],
+    data_mc[[5]][, "sv_n_sv_n"], data_mc[[5]][, "sv_n_sv_t"], data_mc[[5]][, "sv_n_ms_n"], data_mc[[5]][, "sv_n_ms_t"],
+    data_mc[[5]][, "ms_n_garch_n"], data_mc[[5]][, "ms_n_garch_t"], data_mc[[5]][, "ms_n_gas_n"], data_mc[[5]][, "ms_n_gas_t"],
+    data_mc[[5]][, "ms_n_sv_n"], data_mc[[5]][, "ms_n_sv_t"], data_mc[[5]][, "ms_n_ms_n"], data_mc[[5]][, "ms_n_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(500, 32000)
+  distri <- rep("N", 32000)
+  mc_5 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  simul <- c(rep(data_mc[[6]][, "garch"], 8), rep(data_mc[[6]][, "gas"], 8), rep(data_mc[[6]][, "sv"], 8), rep(data_mc[[6]][, "ms"], 8))
+  dgp <- c(rep("GARCH", 8000), rep("GAS", 8000), rep("SV", 8000), rep("MS", 8000))
+  fore <- c(data_mc[[6]][, "garch_t_garch_n"], data_mc[[6]][, "garch_t_garch_t"], data_mc[[6]][, "garch_t_gas_n"], data_mc[[6]][, "garch_t_gas_t"],
+    data_mc[[6]][, "garch_t_sv_n"], data_mc[[6]][, "garch_t_sv_t"], data_mc[[6]][, "garch_t_ms_n"],  data_mc[[6]][, "garch_t_ms_t"],
+    data_mc[[6]][, "gas_t_garch_n"], data_mc[[6]][, "gas_t_garch_t"], data_mc[[6]][, "gas_t_gas_n"], data_mc[[6]][, "gas_t_gas_t"],
+    data_mc[[6]][, "gas_t_sv_n"], data_mc[[6]][, "gas_t_sv_t"], data_mc[[6]][, "gas_t_ms_n"], data_mc[[6]][, "gas_t_ms_t"],
+    data_mc[[6]][, "sv_t_garch_n"], data_mc[[6]][, "sv_t_garch_t"], data_mc[[6]][, "sv_t_gas_n"], data_mc[[6]][, "sv_t_gas_t"],
+    data_mc[[6]][, "sv_t_sv_n"], data_mc[[6]][, "sv_t_sv_t"], data_mc[[6]][, "sv_t_ms_n"], data_mc[[6]][, "sv_t_ms_t"],
+    data_mc[[6]][, "ms_t_garch_n"], data_mc[[6]][, "ms_t_garch_t"], data_mc[[6]][, "ms_t_gas_n"], data_mc[[6]][, "ms_t_gas_t"],
+    data_mc[[6]][, "ms_t_sv_n"], data_mc[[6]][, "ms_t_sv_t"], data_mc[[6]][, "ms_t_ms_n"], data_mc[[6]][, "ms_t_ms_t"])
+  model <- rep(c(rep("GARCH-N", 1000), rep("GARCH-T", 1000), rep("GAS-N", 1000), rep("GAS-T", 1000), rep("SV-N", 1000), rep("SV-T", 1000), rep("MS-N", 1000), rep("MS-T", 1000)), 4)
+  n <- rep(500, 32000)
+  distri <- rep("T", 32000)
+  mc_6 <- data.frame(simul, dgp, fore, model, n, distri)
+  
+  mc_TRUE <- rbind(mc_5, mc_6, mc_1, mc_2, mc_3, mc_4) |>  mutate(ratio = simul/fore, outliers = TRUE)
+  
+  mc <- rbind(mc_FALSE, mc_TRUE) 
+  
+  
+  mc_full <- mc |> filter(n > 500) |>
+    mutate(outliers = as.factor(outliers), n = factor(n), model = factor(model))
+  
+  ggplot(mc_full) +
+    geom_boxplot(aes(
+      y = ratio,
+      x = factor(n),
+      colour = model,
+      fill = outliers
+    ), position = position_dodge(width = 0.75)) +
+    facet_grid(distri ~ dgp, scales = "free_y") +
+    labs(
+      x = "Sample Size",
+      y = expression(sigma[T + 1] / hat(sigma)[T + 1]),
+      colour = "Estimated Model: ",
+      fill = "Outliers"
+    ) +
+    scale_colour_brewer(palette = "Set2") +
+    theme(legend.position = "bottom")
+  
+  
+}
+
+
+
+
+
+files_false <- list.files(path = './MonteCarlo', pattern = '*FALSE_US.csv', full.names = TRUE)
 results_FALSE <- making_tables(files_false) |> mutate(Outliers = FALSE)
 
-files_true <- list.files(path = './MonteCarlo', pattern = '*TRUE_BR.csv', full.names = TRUE)
+files_true <- list.files(path = './MonteCarlo', pattern = '*TRUE_US.csv', full.names = TRUE)
 results_TRUE <- making_tables(files_true)  |> mutate(Outliers = TRUE)
 
 
 results <- rbind(results_FALSE, results_TRUE)
+
 
 
 options(pillar.sigfig = 5)
@@ -439,7 +667,7 @@ results |>
     values_from = c(MSE, QLIKE, `MSE LOG`, `MSE SD`, `MSE PROP`, MAE, `MAE LOG`, `MAE SD`, `MAE PROP`)) |> 
   select(DGP, N, Estim, ends_with("_FALSE"), ends_with("_TRUE")) |> 
   xtable::xtable(digits = 4) |> 
-  print(file = "results_MC_N.tex", , include.rownames = FALSE)
+  print(file = "results_MC_N_US.tex", , include.rownames = FALSE)
 
 
 

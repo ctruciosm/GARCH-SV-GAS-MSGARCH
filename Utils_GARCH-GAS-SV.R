@@ -3,7 +3,7 @@
 ################################################################################
 
 loss_mse <- function(h_proxy, h_fore)  mean((h_proxy - h_fore)^2)
-loss_qlike <- function(h_proxy, h_fore) mean(log(h_fore) + h_proxy/h_fore)
+loss_qlike <- function(h_proxy, h_fore) mean(h_proxy/h_fore - log(h_proxy/h_fore) - 1)
 loss_mse_log <- function(h_proxy, h_fore) mean((log(h_proxy) - log(h_fore))^2)
 loss_mse_sd <- function(h_proxy, h_fore) mean((sqrt(h_proxy) - sqrt(h_fore))^2)
 loss_mse_prop <- function(h_proxy, h_fore) mean((h_proxy / h_fore - 1)^2)

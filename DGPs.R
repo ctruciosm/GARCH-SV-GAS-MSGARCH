@@ -25,7 +25,7 @@ garch_sim <- function(n, params, distri) {
 }
 #dados <- garch_sim(10000, c(0.01, 0.1, 0.86, 7), "std")
 
-sv_sim2 <- function(n, params, distri) {
+sv_sim <- function(n, params, distri) {
   n_burnin <- 500
   n_tot <- n_burnin + n
   h <- rep(NA, n_tot)
@@ -48,7 +48,7 @@ sv_sim2 <- function(n, params, distri) {
 }
 #dados <- sv_sim(10000, c(1.68, 0.95, 0.23, 7), "std")
 
-sv_sim <- function(n, params, distri) {
+sv_sim_package <- function(n, params, distri) {
   if (distri == "std") {
     aux <- svsim(n, params[1], params[2], params[3], params[4])
     ret <- aux$y

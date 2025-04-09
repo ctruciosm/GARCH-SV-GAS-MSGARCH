@@ -121,3 +121,17 @@ gasfit <- function(spec, data) {
 }
 
 
+
+estimate_parameters_t <- function (data) {
+  obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
+  fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  upper = c(NULL, NULL, NULL,  5.52))
+  rep <- TMB::sdreport(obj)
+  opt <- list()
+  class(opt) <- "stochvolTMB"
+  opt$rep <- rep
+  opt$obj <- obj
+  opt$fit <- fit
+  opt$nobs <- length(data)
+  opt$model <- "t"
+  return(opt)
+}

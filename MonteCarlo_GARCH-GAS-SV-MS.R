@@ -7,8 +7,8 @@ library(GAS)
 library(stochvol)
 library(stochvolTMB)
 library(MSGARCH)
-source("DGPs.R")
-source("Utils_GARCH-GAS-SV.R")
+source("GARCH-GAS-MS-SV/DGPs.R")
+source("GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
 
 
 ## Setting values
@@ -27,8 +27,8 @@ if (length(args) > 0) {
     }
   }
 } else {
-  n <- 2500
-  type <- "BR"
+  n <- 1000
+  type <- "US"
   outliers <- "FALSE"
 }
 

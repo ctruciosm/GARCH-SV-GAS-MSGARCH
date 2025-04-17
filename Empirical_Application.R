@@ -33,7 +33,7 @@ ms_spec_t <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), swi
 
 garch_n_fore <- garch_t_fore <- gas_n_fore <- gas_t_fore <- ms_n_fore <- ms_t_fore <- sv_n_fore <- sv_t_fore <- sv_n_fore_b <- sv_t_fore_b <- matrix(0, nrow = oos, ncol = ncol(data) - 1)
 
-plan(multisession, workers = parallel::detectCores() - 4)
+plan(multicores, workers = parallel::detectCores() - 4)
 for (i in 1:oos) {
   print(i)
   returns <- data[i:(i + ins - 1), -1]

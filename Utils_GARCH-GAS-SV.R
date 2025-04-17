@@ -2,27 +2,27 @@
 #####                                Utils                                 #####
 ################################################################################
 
-loss_mse <- function(h_proxy, h_fore)  mean((h_proxy - h_fore)^2)
-loss_qlike <- function(h_proxy, h_fore) mean(h_proxy/h_fore - log(h_proxy/h_fore) - 1)
-loss_mse_log <- function(h_proxy, h_fore) mean((log(h_proxy) - log(h_fore))^2)
-loss_mse_sd <- function(h_proxy, h_fore) mean((sqrt(h_proxy) - sqrt(h_fore))^2)
-loss_mse_prop <- function(h_proxy, h_fore) mean((h_proxy / h_fore - 1)^2)
-loss_mae <- function(h_proxy, h_fore)  mean(abs(h_proxy - h_fore))
-loss_mae_log <- function(h_proxy, h_fore)  mean(abs(log(h_proxy) - log(h_fore)))
-loss_mae_sd <- function(h_proxy, h_fore) mean(abs(sqrt(h_proxy) - sqrt(h_fore)))
-loss_mae_prop <- function(h_proxy, h_fore) mean(abs(h_proxy / h_fore - 1))
+loss_mse <- function(h_proxy, h_fore)  (h_proxy - h_fore)^2
+loss_qlike <- function(h_proxy, h_fore) h_proxy/h_fore - log(h_proxy/h_fore) - 1
+loss_mse_log <- function(h_proxy, h_fore) (log(h_proxy) - log(h_fore))^2
+loss_mse_sd <- function(h_proxy, h_fore) (sqrt(h_proxy) - sqrt(h_fore))^2
+loss_mse_prop <- function(h_proxy, h_fore) (h_proxy / h_fore - 1)^2
+loss_mae <- function(h_proxy, h_fore)  abs(h_proxy - h_fore)
+loss_mae_log <- function(h_proxy, h_fore)  abs(log(h_proxy) - log(h_fore))
+loss_mae_sd <- function(h_proxy, h_fore) abs(sqrt(h_proxy) - sqrt(h_fore))
+loss_mae_prop <- function(h_proxy, h_fore) abs(h_proxy / h_fore - 1)
 
 
 metrics <- function(h_proxy, h_fore) {
-  c(loss_mse(h_proxy, h_fore),
-    loss_qlike(h_proxy, h_fore),
-    loss_mse_log(h_proxy, h_fore),
-    loss_mse_sd(h_proxy, h_fore),
-    loss_mse_prop(h_proxy, h_fore),
-    loss_mae(h_proxy, h_fore),
-    loss_mae_log(h_proxy, h_fore),
-    loss_mae_sd(h_proxy, h_fore),
-    loss_mae_prop(h_proxy, h_fore))
+  c(mean(loss_mse(h_proxy, h_fore)),
+    mean(loss_qlike(h_proxy, h_fore)),
+    mean(loss_mse_log(h_proxy, h_fore)),
+    mean(loss_mse_sd(h_proxy, h_fore)),
+    mean(loss_mse_prop(h_proxy, h_fore)),
+    mean(loss_mae(h_proxy, h_fore)),
+    mean(loss_mae_log(h_proxy, h_fore)),
+    mean(loss_mae_sd(h_proxy, h_fore)),
+    mean(loss_mae_prop(h_proxy, h_fore)))
 }
 
 

@@ -4,6 +4,7 @@
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(modelconf)
 source("Utils_GARCH-GAS-SV.R")
 
 
@@ -101,25 +102,6 @@ making_tables <- function(files_names) {
   n <- rep(500, 32000)
   distri <- rep("T", 32000)
   mc_6 <- data.frame(simul, dgp, fore, model, n, distri)
-  
-  
-  ########################     Plot       ########################################
-  mc <- rbind(mc_5, mc_6, mc_1, mc_2, mc_3, mc_4) |>
-    mutate(ratio = fore / simul)
-  
-  mc |>
-    ggplot() +
-    geom_boxplot(aes(y = ratio, x = factor(n), colour = model)) +
-    facet_grid(distri ~ dgp, scales = "free_y") +
-    ylim(c(0, 10)) +
-    labs(
-      x = "Sample Size",
-      y = expression(sigma[T + 1] / hat(sigma)[T + 1]),
-      colour = "Estimated Model: "
-    ) +
-    scale_colour_brewer(palette = "Set2") +
-    theme(legend.position = "bottom")
-  ##########################     End  Plot      ##################################
   
   results_1 <- round(
     rbind(
@@ -413,13 +395,13 @@ making_tables <- function(files_names) {
       )
     )
   
-  results <- rbind( results_5, results_6, results_1, results_2, results_3, results_4) |> select(DGP, n, distri, Estim, everything())
+  results <- rbind(results_5, results_6, results_1, results_2, results_3, results_4) |> select(DGP, n, distri, Estim, everything())
   colnames(results) <- c("DGP", "N", "DIST", "Estim", "MSE", "QLIKE", "MSE LOG", "MSE SD", "MSE PROP", "MAE", "MAE LOG", "MAE SD", "MAE PROP")
   return(results)
 }
 
 
-making_plots <- functions(files_names_F, files_names_T) {
+making_plots <- function(files_names_F, files_names_T) {
   
   # Outliers FALSE
   data_mc <- list()
@@ -642,9 +624,7 @@ making_plots <- functions(files_names_F, files_names_T) {
 
 
 
-
-
-files_false <- list.files(path = './MonteCarlo', pattern = '*FALSE_US.csv', full.names = TRUE)
+files_false <- list.files(path = './MonteCarlo', pattern = '*FALSE_BR.csv', full.names = TRUE)
 results_FALSE <- making_tables(files_false) |> mutate(Outliers = FALSE)
 
 files_true <- list.files(path = './MonteCarlo', pattern = '*TRUE_US.csv', full.names = TRUE)

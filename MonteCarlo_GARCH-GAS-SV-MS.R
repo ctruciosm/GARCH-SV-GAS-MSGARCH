@@ -28,7 +28,7 @@ if (length(args) > 0) {
   }
 } else {
   n <- 500
-  type <- "BR"
+  type <- "US"
   outliers <- "TRUE"
 }
 

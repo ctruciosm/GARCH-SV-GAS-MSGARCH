@@ -126,9 +126,10 @@ estimate_parameters_t <- function (data) {
   obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
   fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  upper = c(NULL, NULL, NULL,  5.52))
   rep <- suppressWarnings(TMB::sdreport(obj))
-  while (any(is.nan(rep$sd))) {
+  while (fit$convergence != 0 || any(is.nan(rep$sd)) || !rep$pdHess) {
     obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
-    fit <- stats::nlminb(obj$par, obj$fn, obj$gr, upper = c(NULL, NULL, NULL, 5.52 + runif(1, 0, 1)))
+    obj$par <- fit$par + runif(length(obj$par), -0.1, 0.1)
+    fit <- stats::nlminb(obj$par, obj$fn, obj$gr, lower = c(NULL, -5, NULL, NULL), upper = c(NULL, NULL, NULL, 5.52 + runif(1, 0, 1)))
     rep <- suppressWarnings(TMB::sdreport(obj))
   }
   opt <- list()

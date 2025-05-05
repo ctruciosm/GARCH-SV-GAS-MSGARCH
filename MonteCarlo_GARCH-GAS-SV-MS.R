@@ -4,12 +4,13 @@
 args <- commandArgs(TRUE)
 library(rugarch)
 library(GAS)
+library(stochvol)
 library(stochvolTMB)
 library(dplyr)
 library(stringr)
 library(MSGARCH)
-source("DGPs.R")
-source("Utils_GARCH-GAS-SV.R")
+source("./GARCH-GAS-MS-SV/DGPs.R")
+source("./GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
 
 
 ## Setting values
@@ -25,16 +26,16 @@ if (length(args) > 0) {
       if (param_name == "n") n <- as.integer(param_value)
       if (param_name == "type") type <- param_value
       if (param_name == "outliers") outliers <- param_value
-      if (type == "RND"){
-        seed <- as.numeric(Sys.Date())
-      }
-      
     }
   }
 } else {
-  n <- 2500
+  n <- 1000
   type <- "RND"
   outliers <- "TRUE"
+}
+
+if (type == "RND"){
+  seed <- as.numeric(Sys.Date())
 }
 
 
@@ -108,16 +109,16 @@ if (type == "RND") {
   }
   garch_params <- as.numeric(coef(ugarchfit(garch_spec_t, data, solver = "hybrid")))[1:3]
   gas_params <- as.numeric(coef(gasfit(gas_spec_t, data)))[c(2, 4, 5)]
-  sv_params <- as.numeric(aaa$summary$para[c(1, 2, 3), 1])
+  sv_params <- as.numeric(svtsample(data)$summary$para[c(1, 2, 3), 1])
   aux_ms <- as.numeric(msgarchfit(ms_spec_t, data)$par)
   ms_params <- aux_ms[c(1, 2, 3, 5, 6, 7)]
   P <- matrix(c(aux_ms[9], aux_ms[10], 1 - aux_ms[9], 1- aux_ms[10]), 2, 2, byrow = TRUE) 
 }
 
 true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
-fore_vols_n <- matrix(NA, ncol = 40, nrow = mc)
+fore_vols_n <- matrix(NA, ncol = 32, nrow = mc)
 true_vols_t <- matrix(NA, ncol = 4, nrow = mc)
-fore_vols_t <- matrix(NA, ncol = 40, nrow = mc)
+fore_vols_t <- matrix(NA, ncol = 32, nrow = mc)
 for (i in 1:mc) {
   set.seed(i + 123)
   print(i)

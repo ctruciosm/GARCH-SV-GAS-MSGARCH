@@ -7,8 +7,8 @@ loss_qlike <- function(h_proxy, h_fore) h_proxy/h_fore - log(h_proxy/h_fore) - 1
 loss_mse_log <- function(h_proxy, h_fore) (log(h_proxy) - log(h_fore))^2
 loss_mse_sd <- function(h_proxy, h_fore) (sqrt(h_proxy) - sqrt(h_fore))^2
 loss_mse_prop <- function(h_proxy, h_fore) (h_proxy / h_fore - 1)^2
-loss_mae <- function(h_proxy, h_fore)  abs(h_proxy - h_fore)
-loss_mae_log <- function(h_proxy, h_fore)  abs(log(h_proxy) - log(h_fore))
+loss_mae <- function(h_proxy, h_fore) abs(h_proxy - h_fore)
+loss_mae_log <- function(h_proxy, h_fore) abs(log(h_proxy) - log(h_fore))
 loss_mae_sd <- function(h_proxy, h_fore) abs(sqrt(h_proxy) - sqrt(h_fore))
 loss_mae_prop <- function(h_proxy, h_fore) abs(h_proxy / h_fore - 1)
 
@@ -124,7 +124,7 @@ gasfit <- function(spec, data) {
 
 estimate_parameters_t <- function (data) {
   obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
-  fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  upper = c(NULL, NULL, NULL,  5.52))
+  fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  lower = c(NULL, -5, NULL, NULL), upper = c(NULL, NULL, NULL,  5.52))
   rep <- suppressWarnings(TMB::sdreport(obj))
   while (fit$convergence != 0 || any(is.nan(rep$sd)) || !rep$pdHess) {
     obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
@@ -139,5 +139,27 @@ estimate_parameters_t <- function (data) {
   opt$fit <- fit
   opt$nobs <- length(data)
   opt$model <- "t"
+  return(opt)
+}
+
+
+
+estimate_parameters_n <- function (data) {
+  obj <- get_nll(data, model = "gaussian", silent = TRUE, hessian = TRUE)
+  fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  lower = c(NULL, -5, NULL))
+  rep <- suppressWarnings(TMB::sdreport(obj))
+  while (fit$convergence != 0 || any(is.nan(rep$sd)) || !rep$pdHess) {
+    obj <- get_nll(data, model = "gaussian", silent = TRUE, hessian = TRUE)
+    obj$par <- fit$par + runif(length(obj$par), -0.1, 0.1)
+    fit <- stats::nlminb(obj$par, obj$fn, obj$gr, lower = c(NULL, -5, NULL), upper = c(NULL, NULL, NULL))
+    rep <- suppressWarnings(TMB::sdreport(obj))
+  }
+  opt <- list()
+  class(opt) <- "stochvolTMB"
+  opt$rep <- rep
+  opt$obj <- obj
+  opt$fit <- fit
+  opt$nobs <- length(data)
+  opt$model <- "gaussian"
   return(opt)
 }

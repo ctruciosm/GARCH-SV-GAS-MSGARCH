@@ -28,7 +28,7 @@ if (length(args) > 0) {
   }
 } else {
   n <- 500
-  type <- "US"
+  type <- "BR"
   outliers <- "TRUE"
 }
 
@@ -73,7 +73,7 @@ if (type == "BR") {
   gas_params <- c(0.03, 0.22, 0.98)
   sv_params <- c(1.74, 0.97, 0.17)
   ms_params <- c(0.005, 0.025, 0.95, 0.1, 0.25, 0.70)
-  P <-  matrix(c(0.75, 0.30, 0.25, 0.70), 2, 2, byrow = TRUE)  #Haas
+  P <-  matrix(c(0.75, 0.30, 0.25, 0.70), 2, 2, byrow = TRUE) 
 }
 if (type == "US") {
   # data <- readxl::read_xlsx("Data/economatica_nyse_diario.xlsx", skip = 3, col_types = c("text", rep("numeric", 1420)), na = c("-", " ", "NA"))
@@ -83,7 +83,7 @@ if (type == "US") {
   gas_params <- c(0.06, 0.34, 0.92)
   sv_params <- c(1.15, 0.90, 0.36)
   ms_params <- c(0.01, 0.16, 0.30, 0.18, 0.46, 0.20)
-  P <- matrix(c(0.98, 0.05, 0.02, 0.95), 2, 2, byrow = TRUE) #Haas
+  P <- matrix(c(0.98, 0.05, 0.02, 0.95), 2, 2, byrow = TRUE) 
 }
 
 true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
@@ -142,7 +142,7 @@ for (i in 1:mc) {
   garch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
   garch_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_n), H = 1)@Forecast$PointForecast[, 2])
   garch_n_sv_n_b <- median(predvola(predict(svsample(r_garch_sim_n, quiet = TRUE), 1)))
-  garch_n_sv_n <- median(predict(estimate_parameters(r_garch_sim_n, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
+  garch_n_sv_n <- median(predict(estimate_parameters_n(r_garch_sim_n), steps = 1)$h_exp)
   garch_n_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_n), nahead = 1)$vol
   garch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_garch_sim_n)

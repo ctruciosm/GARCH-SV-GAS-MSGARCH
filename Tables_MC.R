@@ -5,6 +5,7 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(modelconf)
+library(wrMisc)
 source("Utils_GARCH-GAS-SV.R")
 
 
@@ -627,7 +628,7 @@ making_plots <- function(files_names_F, files_names_T) {
 files_false <- list.files(path = './MonteCarlo', pattern = '*FALSE_BR.csv', full.names = TRUE)
 results_FALSE <- making_tables(files_false) |> mutate(Outliers = FALSE)
 
-files_true <- list.files(path = './MonteCarlo', pattern = '*TRUE_US.csv', full.names = TRUE)
+files_true <- list.files(path = './MonteCarlo', pattern = '*TRUE_BR.csv', full.names = TRUE)
 results_TRUE <- making_tables(files_true)  |> mutate(Outliers = TRUE)
 
 
@@ -638,7 +639,7 @@ results <- rbind(results_FALSE, results_TRUE)
 options(pillar.sigfig = 5)
 results |> 
   mutate(N = factor(N, levels = c(500, 1000, 2500))) |> 
-  filter(DIST == "N") |> 
+  filter(DIST == "T") |> 
   group_by(DGP, N, Estim, Outliers) |> 
   reframe(MSE, QLIKE, `MSE LOG`, `MSE SD`, `MSE PROP`, MAE, `MAE LOG`, `MAE SD`, `MAE PROP`) |> 
   ungroup() |> 
@@ -647,7 +648,7 @@ results |>
     values_from = c(MSE, QLIKE, `MSE LOG`, `MSE SD`, `MSE PROP`, MAE, `MAE LOG`, `MAE SD`, `MAE PROP`)) |> 
   select(DGP, N, Estim, ends_with("_FALSE"), ends_with("_TRUE")) |> 
   xtable::xtable(digits = 4) |> 
-  print(file = "results_MC_N_US.tex", , include.rownames = FALSE)
+  print(file = "results_MC_T_BR.tex", , include.rownames = FALSE)
 
 
 

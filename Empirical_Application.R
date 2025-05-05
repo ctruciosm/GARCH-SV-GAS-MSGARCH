@@ -31,7 +31,7 @@ gas_spec_t <- UniGASSpec(Dist = "std", ScalingType = "Identity", GASPar = list(l
 ms_spec_n <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), switch.spec = list(do.mix = FALSE), distribution.spec = list(distribution = c("norm", "norm")))
 ms_spec_t <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), switch.spec = list(do.mix = FALSE), distribution.spec = list(distribution = c("std", "std")), constraint.spec = list(regime.const = c("nu")))
 
-garch_n_fore <- garch_t_fore <- gas_n_fore <- gas_t_fore <- ms_n_fore <- ms_t_fore <- sv_n_fore <- sv_t_fore <- sv_n_fore_b <- sv_t_fore_b <- matrix(0, nrow = oos, ncol = ncol(data) - 1, dimnames = list(NULL, colnames(data)[-1]))
+garch_n_fore <- garch_t_fore <- gas_n_fore <- gas_t_fore <- ms_n_fore <- ms_t_fore <- sv_n_fore <- sv_t_fore <- matrix(0, nrow = oos, ncol = ncol(data) - 1, dimnames = list(NULL, colnames(data)[-1]))
 
 
 
@@ -39,7 +39,7 @@ garch_n_fore <- garch_t_fore <- gas_n_fore <- gas_t_fore <- ms_n_fore <- ms_t_fo
 plan(multicore, workers = parallel::detectCores() - 2)
 for (i in 1:oos) {
   print(i)
-  returns <- data[(i + 1500):(i + ins - 1), -1]
+  returns <- data[(i + 1500):(i + ins - 1), -1] # or data[i:(i + ins - 1), -1] depending the window size
   mu <- apply(returns, 2, mean)
   returns_c <- scale(returns, scale = FALSE)
 
@@ -87,42 +87,29 @@ for (i in 1:oos) {
       return(sigma2)
     }, error = function(e) { return(NA) }) }, future.seed = TRUE)
   
-  sv_n_fore_b[i, ]  <- future_apply(returns_c, 2, function(x) {
+  
+  sv_n_fore[i, ]  <- future_apply(returns_c, 2, function(x) {
     tryCatch({
-      sigma2 <- median(predvola(predict(svsample(na.omit(x), quiet = TRUE), 1))^2)
+      sv_n_fit <- estimate_parameters(as.numeric(na.omit(x)), model = "gaussian", silent = TRUE)
+      sigma2 <- median(predict(sv_n_fit, steps = 1)$h_exp)
       return(sigma2)
     }, error = function(e) { return(NA) }) }, future.seed = TRUE)
   
-  sv_t_fore_b[i, ]  <- future_apply(returns_c, 2, function(x) {
+  sv_t_fore[i, ]  <- future_apply(returns_c, 2, function(x) {
     tryCatch({
-      sigma2 <- median(predvola(predict(svtsample(na.omit(x), quiet = TRUE), 1))^2)
+      sv_t_fit <- estimate_parameters_t(as.numeric(na.omit(x)))
+      sigma2 <- median(predict(sv_t_fit, steps = 1)$h_exp)
       return(sigma2)
     }, error = function(e) { return(NA) }) }, future.seed = TRUE)
-  
-#  sv_n_fore[i, ]  <- future_apply(returns_c, 2, function(x) {
-#    tryCatch({
-#      sv_n_fit <- estimate_parameters(as.numeric(na.omit(x)), model = "gaussian", silent = TRUE)
-#      sigma2 <- median(predict(sv_n_fit, steps = 1)$h_exp)
-#      return(sigma2)
-#    }, error = function(e) { return(NA) }) }, future.seed = TRUE)
-  
-#  sv_t_fore[i, ]  <- future_apply(returns_c, 2, function(x) {
-#    tryCatch({
-#      sv_t_fit <- estimate_parameters_t(as.numeric(na.omit(x)))
-#      sigma2 <- median(predict(sv_t_fit, steps = 1)$h_exp)
-#      return(sigma2)
-#    }, error = function(e) { return(NA) }) }, future.seed = TRUE)
 }
 
 
-write.csv(garch_n_fore, "garch_n_fore_1000.csv")
-write.csv(garch_t_fore, "garch_t_fore_1000.csv")
-write.csv(gas_n_fore, "gas_n_fore_1000.csv")
-write.csv(gas_t_fore, "gas_t_fore_1000.csv")
-write.csv(ms_n_fore, "ms_n_fore_1000.csv")
-write.csv(ms_t_fore, "ms_t_fore_1000.csv")
-#write.csv(sv_n_fore_b, "sv_n_fore_b_1000.csv")
-#write.csv(sv_t_fore_b, "sv_t_fore_b_1000.csv")
-write.csv(sv_n_fore, "sv_n_fore_1000.csv")
-write.csv(sv_t_fore, "sv_t_fore_1000.csv")
-write.csv(data[(1 + ins):nrow(data), 1], "datas_oos_1000.csv")
+write.csv(garch_n_fore, "garch_n_fore.csv")
+write.csv(garch_t_fore, "garch_t_fore.csv")
+write.csv(gas_n_fore, "gas_n_fore.csv")
+write.csv(gas_t_fore, "gas_t_fore.csv")
+write.csv(ms_n_fore, "ms_n_fore.csv")
+write.csv(ms_t_fore, "ms_t_fore.csv")
+write.csv(sv_n_fore, "sv_n_fore.csv")
+write.csv(sv_t_fore, "sv_t_fore.csv")
+write.csv(data[(1 + ins):nrow(data), 1], "datas_oos.csv")

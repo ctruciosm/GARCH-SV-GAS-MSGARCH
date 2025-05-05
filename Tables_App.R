@@ -4,6 +4,7 @@
 library(dplyr)
 library(lubridate)
 library(modelconf)
+library(wrMisc)
 source("Utils_GARCH-GAS-SV.R")
 
 
@@ -17,9 +18,7 @@ ms_n <- read.csv("./Empirical_Application/ms_n_fore.csv")[, -1]
 ms_t <- read.csv("./Empirical_Application/ms_t_fore.csv")[, -1]
 sv_n <- read.csv("./Empirical_Application/sv_n_fore.csv")[, -1]
 sv_t <- read.csv("./Empirical_Application/sv_t_fore.csv")[, -1]
-#sv_n_b <- read.csv("./Empirical_Application/sv_n_fore_b.csv")[, -1]
-#sv_t_b <- read.csv("./Empirical_Application/sv_t_fore_b.csv")[, -1]
-rv_oos <- read.csv("./Data/capire_bpv_5.csv", sep = ";", dec = ",") |> mutate(Date = lubridate::dmy(Date)) |> filter(Date > "2019-12-08") |> select(-Date)
+rv_oos <- read.csv("./Data/capire_rv_5.csv", sep = ";", dec = ",") |> mutate(Date = lubridate::dmy(Date)) |> filter(Date > "2019-12-08") |> select(-Date)
 
 
 colnames(garch_n) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
@@ -30,22 +29,20 @@ colnames(ms_n) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "C
 colnames(ms_t) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
 colnames(sv_n) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
 colnames(sv_t) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
-#colnames(sv_n_b) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
-#colnames(sv_t_b) <- c("MMM", "AMZN", "AXP", "AMGN", "AAPL", "BA", "CAT", "CVX", "CSCO", "KO", "HD", "HON", "INTC", "IBM", "JNJ", "JPM", "MCD", "MRK", "MSFT", "NKE", "PG", "GS", "TRV", "UNH", "VZ", "V", "WMT", "DIS", "CRM")
 
 
 m_mse <- matrix(0, ncol = 8, nrow = ncol(garch_n))
 m_qlike <- matrix(0, ncol = 8, nrow = ncol(garch_n))
 
 for (i in 1:ncol(garch_n)) {
-  m_mse[i, ] <- c(mean(loss_mse(rv_oos[, colnames(garch_n)[i]], garch_n[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], garch_t[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], gas_n[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], gas_t[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], ms_n[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], ms_t[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], sv_n[, colnames(garch_n)[i]])),
-                  mean(loss_mse(rv_oos[, colnames(garch_n)[i]], sv_t[, colnames(garch_n)[i]])))
+  m_mse[i, ] <- c(trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], garch_n[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], garch_t[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], gas_n[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], gas_t[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], ms_n[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], ms_t[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], sv_n[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)),
+                  trimmedMean(loss_mse(rv_oos[, colnames(garch_n)[i]], sv_t[, colnames(garch_n)[i]]), trim = c(l = 0.0, u = 0.05)))
   m_qlike[i, ] <- c(mean(loss_qlike(rv_oos[, colnames(garch_n)[i]], garch_n[, colnames(garch_n)[i]])),
                     mean(loss_qlike(rv_oos[, colnames(garch_n)[i]], garch_t[, colnames(garch_n)[i]])),
                     mean(loss_qlike(rv_oos[, colnames(garch_n)[i]], gas_n[, colnames(garch_n)[i]])),

@@ -4,8 +4,9 @@
 args <- commandArgs(TRUE)
 library(rugarch)
 library(GAS)
-library(stochvol)
 library(stochvolTMB)
+library(dplyr)
+library(stringr)
 library(MSGARCH)
 source("DGPs.R")
 source("Utils_GARCH-GAS-SV.R")
@@ -24,11 +25,15 @@ if (length(args) > 0) {
       if (param_name == "n") n <- as.integer(param_value)
       if (param_name == "type") type <- param_value
       if (param_name == "outliers") outliers <- param_value
+      if (type == "RND"){
+        seed <- as.numeric(Sys.Date())
+      }
+      
     }
   }
 } else {
-  n <- 500
-  type <- "BR"
+  n <- 2500
+  type <- "RND"
   outliers <- "TRUE"
 }
 
@@ -86,6 +91,29 @@ if (type == "US") {
   P <- matrix(c(0.98, 0.05, 0.02, 0.95), 2, 2, byrow = TRUE) 
 }
 
+if (type == "RND") {
+  set.seed(seed)
+  if (runif(1)> 0.5) {
+    aux <- read.csv("./Data/precos_diarios_ibrx.csv")[, -c(1, 2)]
+    ii <- sample(1:ncol(aux), 1)
+    data <- stochvol::logret(as.numeric(na.omit(aux[, ii]))) * 100
+  } else {
+    aux <- readxl::read_xlsx("Data/economatica_nyse_diario.xlsx", skip = 3, col_types = c("date", rep("numeric", 1420)), na = c("-", " ", "NA"))|> 
+      filter(Data > "2000-01-01" & Data < "2025-01-01") |> 
+      filter(!if_all(where(is.numeric), is.na)) |> 
+      rename_with(~ str_remove(.x, "Fechamento\najust p/ prov\nEm moeda orig\n"), -Data) |> 
+      select(!contains("old"))
+    ii <- sample(3:ncol(aux), 1)
+    data <- stochvol::logret(na.omit(aux[, ii][[1]])) * 100
+  }
+  garch_params <- as.numeric(coef(ugarchfit(garch_spec_t, data, solver = "hybrid")))[1:3]
+  gas_params <- as.numeric(coef(gasfit(gas_spec_t, data)))[c(2, 4, 5)]
+  sv_params <- as.numeric(aaa$summary$para[c(1, 2, 3), 1])
+  aux_ms <- as.numeric(msgarchfit(ms_spec_t, data)$par)
+  ms_params <- aux_ms[c(1, 2, 3, 5, 6, 7)]
+  P <- matrix(c(aux_ms[9], aux_ms[10], 1 - aux_ms[9], 1- aux_ms[10]), 2, 2, byrow = TRUE) 
+}
+
 true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
 fore_vols_n <- matrix(NA, ncol = 40, nrow = mc)
 true_vols_t <- matrix(NA, ncol = 4, nrow = mc)
@@ -93,7 +121,6 @@ fore_vols_t <- matrix(NA, ncol = 40, nrow = mc)
 for (i in 1:mc) {
   set.seed(i + 123)
   print(i)
-
   # Simulate DGPs
   garch_sim_n <- garch_sim(2500 + 1, garch_params, "norm")
   gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
@@ -141,132 +168,124 @@ for (i in 1:mc) {
   # Fit the models
   garch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
   garch_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_n), H = 1)@Forecast$PointForecast[, 2])
-  garch_n_sv_n_b <- median(predvola(predict(svsample(r_garch_sim_n, quiet = TRUE), 1)))
   garch_n_sv_n <- median(predict(estimate_parameters_n(r_garch_sim_n), steps = 1)$h_exp)
   garch_n_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_n), nahead = 1)$vol
   garch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_garch_sim_n)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   garch_n_gas_t <- sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  garch_n_sv_t_b <- median(predvola(predict(svtsample(r_garch_sim_n, quiet = TRUE), 1)))
   garch_n_sv_t <- median(predict(estimate_parameters_t(r_garch_sim_n), steps = 1)$h_exp)
   garch_n_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_n), nahead = 1)$vol
   
   garch_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
   garch_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_t), H = 1)@Forecast$PointForecast[, 2])
-  garch_t_sv_n_b <- median(predvola(predict(svsample(r_garch_sim_t, quiet = TRUE), 1)))
   garch_t_sv_n <- median(predict(estimate_parameters(r_garch_sim_t, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   garch_t_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_t), nahead = 1)$vol
   garch_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_garch_sim_t)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   garch_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  garch_t_sv_t_b <- median(predvola(predict(svtsample(r_garch_sim_t, quiet = TRUE), 1)))
   garch_t_sv_t <- median(predict(estimate_parameters_t(r_garch_sim_t), steps = 1)$h_exp)
   garch_t_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_t), nahead = 1)$vol
 
   gas_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
   gas_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_n), H = 1)@Forecast$PointForecast[, 2])
-  gas_n_sv_n_b <- median(predvola(predict(svsample(r_gas_sim_n, quiet = TRUE), 1)))
   gas_n_sv_n <- median(predict(estimate_parameters(r_gas_sim_n, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   gas_n_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_n), nahead = 1)$vol
   gas_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_gas_sim_n)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   gas_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  gas_n_sv_t_b <- median(predvola(predict(svtsample(r_gas_sim_n, quiet = TRUE), 1)))
   gas_n_sv_t <- median(predict(estimate_parameters_t(r_gas_sim_n), steps = 1)$h_exp)
   gas_n_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_n), nahead = 1)$vol
 
   gas_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
   gas_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_t),H = 1)@Forecast$PointForecast[, 2])
-  gas_t_sv_n_b <- median(predvola(predict(svsample(r_gas_sim_t, quiet = TRUE), 1)))
   gas_t_sv_n <-  median(predict(estimate_parameters(r_gas_sim_t, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   gas_t_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_t), nahead = 1)$vol
   gas_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_gas_sim_t)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   gas_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  gas_t_sv_t_b <- median(predvola(predict(svtsample(r_gas_sim_t, quiet = TRUE), 1)))
   gas_t_sv_t <- median(predict(estimate_parameters_t(r_gas_sim_t), steps = 1)$h_exp)
   gas_t_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_t), nahead = 1)$vol
 
   sv_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
   sv_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_n), H = 1)@Forecast$PointForecast[, 2])
-  sv_n_sv_n_b <- median(predvola(predict(svsample(r_sv_sim_n, quiet = TRUE), 1)))
   sv_n_sv_n <- median(predict(estimate_parameters(r_sv_sim_n, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   sv_n_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_n), nahead = 1)$vol
   sv_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_sv_sim_n)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   sv_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  sv_n_sv_t_b <- median(predvola(predict(svtsample(r_sv_sim_n, quiet = TRUE), 1)))
   sv_n_sv_t <- median(predict(estimate_parameters_t(r_sv_sim_n), steps = 1)$h_exp)
   sv_n_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_n), nahead = 1)$vol
 
   sv_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
   sv_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_t), H = 1)@Forecast$PointForecast[, 2])
-  sv_t_sv_n_b <- median(predvola(predict(svsample(r_sv_sim_t, quiet = TRUE), 1)))
   sv_t_sv_n <- median(predict(estimate_parameters(r_sv_sim_t, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   sv_t_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_t), nahead = 1)$vol
   sv_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_sv_sim_t)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   sv_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  sv_t_sv_t_b <- median(predvola(predict(svtsample(r_sv_sim_t, quiet = TRUE), 1)))
   sv_t_sv_t <- median(predict(estimate_parameters_t(r_sv_sim_t), steps = 1)$h_exp)
   sv_t_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_t), nahead = 1)$vol
 
   ms_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
   ms_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_n), H = 1)@Forecast$PointForecast[, 2])
-  ms_n_sv_n_b <- median(predvola(predict(svsample(r_ms_sim_n, quiet = TRUE), 1)))
   ms_n_sv_n <- median(predict(estimate_parameters(r_ms_sim_n, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   ms_n_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_n), nahead = 1)$vol
   ms_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_ms_sim_n)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   ms_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  ms_n_sv_t_b <- median(predvola(predict(svtsample(r_ms_sim_n, quiet = TRUE), 1)))
   ms_n_sv_t <- median(predict(estimate_parameters_t(r_ms_sim_n), steps = 1)$h_exp)
   ms_n_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_n), nahead = 1)$vol
 
   ms_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
   ms_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_t), H = 1)@Forecast$PointForecast[, 2])
-  ms_t_sv_n_b <- median(predvola(predict(svsample(r_ms_sim_t, quiet = TRUE), 1)))
   ms_t_sv_n <- median(predict(estimate_parameters(r_ms_sim_t, model = "gaussian", silent = TRUE), steps = 1)$h_exp)
   ms_t_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_t), nahead = 1)$vol
   ms_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_ms_sim_t)
     nu <- aux_gas_t@GASDyn$mTheta[3, 1]
   ms_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  ms_t_sv_t_b <- median(predvola(predict(svtsample(r_ms_sim_t, quiet = TRUE), 1)))
   ms_t_sv_t <- median(predict(estimate_parameters_t(r_ms_sim_t), steps = 1)$h_exp)
   ms_t_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_t), nahead = 1)$vol
 
   true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(gas_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$volatility[, 3], 1))
   true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(gas_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$volatility[, 3], 1))
-  fore_vols_n[i, ] <- c(garch_n_garch_n, garch_n_garch_t, garch_n_gas_n, garch_n_gas_t, garch_n_sv_n, garch_n_sv_t, garch_n_sv_n_b, garch_n_sv_t_b, garch_n_ms_n, garch_n_ms_t,
-                        gas_n_garch_n, gas_n_garch_t, gas_n_gas_n, gas_n_gas_t, gas_n_sv_n, gas_n_sv_t, gas_n_sv_n_b, gas_n_sv_t_b, gas_n_ms_n, gas_n_ms_t,
-                        sv_n_garch_n, sv_n_garch_t, sv_n_gas_n, sv_n_gas_t, sv_n_sv_n, sv_n_sv_t, sv_n_sv_n_b, sv_n_sv_t_b, sv_n_ms_n, sv_n_ms_t,
-                        ms_n_garch_n, ms_n_garch_t, ms_n_gas_n, ms_n_gas_t, ms_n_sv_n, ms_n_sv_t, ms_n_sv_n_b, ms_n_sv_t_b, ms_n_ms_n, ms_n_ms_t)
-  fore_vols_t[i, ] <- c(garch_t_garch_n, garch_t_garch_t, garch_t_gas_n, garch_t_gas_t, garch_t_sv_n, garch_t_sv_t, garch_t_sv_n_b, garch_t_sv_t_b, garch_t_ms_n, garch_t_ms_t,
-                        gas_t_garch_n, gas_t_garch_t, gas_t_gas_n, gas_t_gas_t, gas_t_sv_n, gas_t_sv_t,  gas_t_sv_n_b, gas_t_sv_t_b, gas_t_ms_n, gas_t_ms_t,
-                        sv_t_garch_n, sv_t_garch_t, sv_t_gas_n, sv_t_gas_t, sv_t_sv_n, sv_t_sv_t, sv_t_sv_n_b, sv_t_sv_t_b, sv_t_ms_n, sv_t_ms_t,
-                        ms_t_garch_n, ms_t_garch_t, ms_t_gas_n, ms_t_gas_t, ms_t_sv_n, ms_t_sv_t, ms_t_sv_n_b, ms_t_sv_t_b, ms_t_ms_n, ms_t_ms_t)
+  fore_vols_n[i, ] <- c(garch_n_garch_n, garch_n_garch_t, garch_n_gas_n, garch_n_gas_t, garch_n_sv_n, garch_n_sv_t,  garch_n_ms_n, garch_n_ms_t,
+                        gas_n_garch_n, gas_n_garch_t, gas_n_gas_n, gas_n_gas_t, gas_n_sv_n, gas_n_sv_t,  gas_n_ms_n, gas_n_ms_t,
+                        sv_n_garch_n, sv_n_garch_t, sv_n_gas_n, sv_n_gas_t, sv_n_sv_n, sv_n_sv_t, sv_n_ms_n, sv_n_ms_t,
+                        ms_n_garch_n, ms_n_garch_t, ms_n_gas_n, ms_n_gas_t, ms_n_sv_n, ms_n_sv_t, ms_n_ms_n, ms_n_ms_t)
+  fore_vols_t[i, ] <- c(garch_t_garch_n, garch_t_garch_t, garch_t_gas_n, garch_t_gas_t, garch_t_sv_n, garch_t_sv_t, garch_t_ms_n, garch_t_ms_t,
+                        gas_t_garch_n, gas_t_garch_t, gas_t_gas_n, gas_t_gas_t, gas_t_sv_n, gas_t_sv_t, gas_t_ms_n, gas_t_ms_t,
+                        sv_t_garch_n, sv_t_garch_t, sv_t_gas_n, sv_t_gas_t, sv_t_sv_n, sv_t_sv_t, sv_t_ms_n, sv_t_ms_t,
+                        ms_t_garch_n, ms_t_garch_t, ms_t_gas_n, ms_t_gas_t, ms_t_sv_n, ms_t_sv_t, ms_t_ms_n, ms_t_ms_t)
 }
 
 volatilities_n <- cbind(true_vols_n, fore_vols_n)
 volatilities_t <- cbind(true_vols_t, fore_vols_t)
 colnames(volatilities_n) <- c("garch", "gas", "sv", "ms",
-  "garch_n_garch_n", "garch_n_garch_t", "garch_n_gas_n", "garch_n_gas_t", "garch_n_sv_n", "garch_n_sv_t", "garch_n_sv_n_b", "garch_n_sv_t_b", "garch_n_ms_n", "garch_n_ms_t",
-  "gas_n_garch_n", "gas_n_garch_t", "gas_n_gas_n", "gas_n_gas_t", "gas_n_sv_n", "gas_n_sv_t", "gas_n_sv_n_b", "gas_n_sv_t_b", "gas_n_ms_n", "gas_n_ms_t",
-  "sv_n_garch_n", "sv_n_garch_t", "sv_n_gas_n", "sv_n_gas_t", "sv_n_sv_n", "sv_n_sv_t", "sv_n_sv_n_b", "sv_n_sv_t_b", "sv_n_ms_n", "sv_n_ms_t",
-  "ms_n_garch_n", "ms_n_garch_t", "ms_n_gas_n", "ms_n_gas_t", "ms_n_sv_n", "ms_n_sv_t", "ms_n_sv_n_b", "ms_n_sv_t_b", "ms_n_ms_n", "ms_n_ms_t")
+  "garch_n_garch_n", "garch_n_garch_t", "garch_n_gas_n", "garch_n_gas_t", "garch_n_sv_n", "garch_n_sv_t", "garch_n_ms_n", "garch_n_ms_t",
+  "gas_n_garch_n", "gas_n_garch_t", "gas_n_gas_n", "gas_n_gas_t", "gas_n_sv_n", "gas_n_sv_t", "gas_n_ms_n", "gas_n_ms_t",
+  "sv_n_garch_n", "sv_n_garch_t", "sv_n_gas_n", "sv_n_gas_t", "sv_n_sv_n", "sv_n_sv_t", "sv_n_ms_n", "sv_n_ms_t",
+  "ms_n_garch_n", "ms_n_garch_t", "ms_n_gas_n", "ms_n_gas_t", "ms_n_sv_n", "ms_n_sv_t", "ms_n_ms_n", "ms_n_ms_t")
 colnames(volatilities_t) <- c("garch", "gas", "sv", "ms",
-  "garch_t_garch_n", "garch_t_garch_t", "garch_t_gas_n", "garch_t_gas_t", "garch_t_sv_n", "garch_t_sv_t", "garch_t_sv_n_b", "garch_t_sv_t_b", "garch_t_ms_n", "garch_t_ms_t",
-  "gas_t_garch_n", "gas_t_garch_t", "gas_t_gas_n", "gas_t_gas_t", "gas_t_sv_n", "gas_t_sv_t", "gas_t_sv_n_b", "gas_t_sv_t_b", "gas_t_ms_n", "gas_t_ms_t",
-  "sv_t_garch_n", "sv_t_garch_t", "sv_t_gas_n", "sv_t_gas_t", "sv_t_sv_n", "sv_t_sv_t", "sv_t_sv_n_b", "sv_t_sv_t_b","sv_t_ms_n", "sv_t_ms_t",
-  "ms_t_garch_n", "ms_t_garch_t", "ms_t_gas_n", "ms_t_gas_t", "ms_t_sv_n", "ms_t_sv_t", "ms_t_sv_n_b", "ms_t_sv_t_b", "ms_t_ms_n", "ms_t_ms_t")
+  "garch_t_garch_n", "garch_t_garch_t", "garch_t_gas_n", "garch_t_gas_t", "garch_t_sv_n", "garch_t_sv_t", "garch_t_ms_n", "garch_t_ms_t",
+  "gas_t_garch_n", "gas_t_garch_t", "gas_t_gas_n", "gas_t_gas_t", "gas_t_sv_n", "gas_t_sv_t", "gas_t_ms_n", "gas_t_ms_t",
+  "sv_t_garch_n", "sv_t_garch_t", "sv_t_gas_n", "sv_t_gas_t", "sv_t_sv_n", "sv_t_sv_t", "sv_t_ms_n", "sv_t_ms_t",
+  "ms_t_garch_n", "ms_t_garch_t", "ms_t_gas_n", "ms_t_gas_t", "ms_t_sv_n", "ms_t_sv_t", "ms_t_ms_n", "ms_t_ms_t")
 
-write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, ".csv"))
-write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, ".csv"))
+
+if (type == "RND") {
+  write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, colnames(aux)[ii], ".csv"))
+  write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, colnames(aux)[ii], ".csv"))
+} else {
+  write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, ".csv"))
+  write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, ".csv"))
+}
+
+

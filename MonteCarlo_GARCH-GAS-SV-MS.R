@@ -9,8 +9,8 @@ library(stochvolTMB)
 library(dplyr)
 library(stringr)
 library(MSGARCH)
-source("DGPs.R")
-source("Utils_GARCH-GAS-SV.R")
+source("./GARCH-GAS-MS-SV/DGPs.R")
+source("./GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
 
 
 ## Setting values
@@ -229,7 +229,7 @@ for (i in 1:mc) {
 
   sv_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
   sv_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_t), H = 1)@Forecast$PointForecast[, 2])
-  sv_t_sv_n <- mmedian(predict(estimate_parameters_n(r_sv_sim_t), steps = 1)$h_exp)
+  sv_t_sv_n <- median(predict(estimate_parameters_n(r_sv_sim_t), steps = 1)$h_exp)
   sv_t_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_t), nahead = 1)$vol
   sv_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
   aux_gas_t <- gasfit(gas_spec_t, r_sv_sim_t)
@@ -290,8 +290,8 @@ if (type == "RND") {
   write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, colnames(aux)[ii], ".csv"))
   write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, colnames(aux)[ii], ".csv"))
 } else {
-  write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, colnames(aux)[ii], ".csv"))
-  write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, colnames(aux)[ii], ".csv"))
+  write.csv(volatilities_n, paste0("volatilities_", n, "_norm_", outliers, "_", type, ".csv"))
+  write.csv(volatilities_t, paste0("volatilities_", n, "_std_", outliers, "_", type, ".csv"))
 }
 
 

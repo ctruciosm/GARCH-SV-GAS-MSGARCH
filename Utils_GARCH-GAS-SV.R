@@ -60,6 +60,9 @@ msgarchfit <- function(spec, data) {
       },
       error = function(e) {
         is_error <- TRUE
+      },
+      warning = function(cond) {
+        is_error <- TRUE
       })
     if (!is.null(expr)) {
       is_error <- FALSE
@@ -77,6 +80,9 @@ msgarchfit <- function(spec, data) {
               do.plm = do.plm, method = opt_methods[k])}))
         },
         error = function(e) {
+          is_error <- TRUE
+        },
+        warning = function(cond) {
           is_error <- TRUE
         })
       if (!is.null(expr)) {

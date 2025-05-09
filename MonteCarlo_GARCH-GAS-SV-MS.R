@@ -9,8 +9,8 @@ library(stochvolTMB)
 library(dplyr)
 library(stringr)
 library(MSGARCH)
-source("./GARCH-GAS-MS-SV/DGPs.R")
-source("./GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
+source("DGPs.R")
+source("Utils_GARCH-GAS-SV.R")
 
 
 ## Setting values
@@ -119,6 +119,7 @@ if (type == "RND") {
   ms_params <- aux_ms[c(1, 2, 3, 5, 6, 7)]
   P <- matrix(c(aux_ms[9], aux_ms[10], 1 - aux_ms[9], 1- aux_ms[10]), 2, 2, byrow = TRUE) 
 }
+colnames(aux)[ii]
 
 true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
 fore_vols_n <- matrix(NA, ncol = 32, nrow = mc)
@@ -129,14 +130,38 @@ for (i in 1:mc) {
   print(i)
   # Simulate DGPs
   garch_sim_n <- garch_sim(2500 + 1, garch_params, "norm")
+  while (abs(acf(tail(garch_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    garch_sim_n <- garch_sim(2500 + 1, garch_params, "norm")
+  }
   gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
+  while (abs(acf(tail(gas_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
+  }
   sv_sim_n <- sv_sim(2500 + 1, sv_params, "norm")
+  while (abs(acf(tail(sv_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    sv_sim_n <- sv_sim(2500 + 1, sv_params, "norm")
+  }
   ms_sim_n <- msgarch_sim(2500 + 1, ms_params, "norm", P)
-
+  while (abs(acf(tail(ms_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    ms_sim_n <- msgarch_sim(2500 + 1, ms_params, "norm", P)
+  }
   garch_sim_t <- garch_sim(2500 + 1, c(garch_params, 7), "std")
+  while (abs(acf(tail(garch_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    garch_sim_t <- garch_sim(2500 + 1, c(garch_params, 7), "std")
+  }
   gas_sim_t <- gas_sim(2500 + 1, c(gas_params, -2.6625878), "std")
+  while (abs(acf(tail(gas_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    gas_sim_t <- gas_sim(2500 + 1, c(gas_params, -2.6625878), "std")
+  }
   sv_sim_t <- sv_sim(2500 + 1, c(sv_params, 7), "std")
+  while (abs(acf(tail(sv_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    sv_sim_t <- sv_sim(2500 + 1, c(sv_params, 7), "std")
+  }
   ms_sim_t <- msgarch_sim(2500 + 1, c(ms_params, 7), "std", P)
+  while (abs(acf(tail(ms_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    ms_sim_t <- msgarch_sim(2500 + 1, c(ms_params, 7), "std", P)
+  }
+  
 
   r_garch_sim_n <- tail(garch_sim_n$returns, n + 1)[1:n]
   r_gas_sim_n <- tail(gas_sim_n$returns, n + 1)[1:n]

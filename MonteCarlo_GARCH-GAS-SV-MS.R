@@ -9,8 +9,8 @@ library(stochvolTMB)
 library(dplyr)
 library(stringr)
 library(MSGARCH)
-source("DGPs.R")
-source("Utils_GARCH-GAS-SV.R")
+source("./GARCH-GAS-MS-SV/DGPs.R")
+source("./GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
 
 
 ## Setting values

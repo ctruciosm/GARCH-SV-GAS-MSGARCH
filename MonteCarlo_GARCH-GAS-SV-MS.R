@@ -3,18 +3,20 @@
 ################################################################################
 args <- commandArgs(TRUE)
 library(rugarch)
-library(GAS)
+library(betategarch)
 library(stochvol)
 library(stochvolTMB)
 library(dplyr)
 library(stringr)
 library(MSGARCH)
-source("./GARCH-GAS-MS-SV/DGPs.R")
-source("./GARCH-GAS-MS-SV/Utils_GARCH-GAS-SV.R")
+library(Rcpp)
+source("./DGPs.R")
+source("./Utils_GARCH-GAS-SV.R")
+sourceCpp("./utils.cpp")
 
-
-## Setting values
 mc <- 1000
+n_dgps <- 5
+
 
 # Parse arguments if they exist
 if (length(args) > 0) {
@@ -29,9 +31,9 @@ if (length(args) > 0) {
     }
   }
 } else {
-  n <- 500
-  type <- "RND"
-  outliers <- "FALSE"
+  n <- 1000
+  type <- "US"
+  outliers <- "TRUE"
 }
 
 if (type == "RND"){
@@ -40,43 +42,20 @@ if (type == "RND"){
 
 
 # Estimated a BR time series to obtain parameters
-garch_spec_n <- ugarchspec(
-  variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
-  mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
-  distribution.model = "norm"
-)
-garch_spec_t <- ugarchspec(
-  variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)),
-  mean.model = list(armaOrder = c(0, 0), include.mean = FALSE),
-  distribution.model = "std"
-)
-gas_spec_n <- UniGASSpec(
-  Dist = "norm",
-  ScalingType = "Identity",
-  GASPar = list(locate = FALSE, scale = TRUE, shape = FALSE)
-)
-gas_spec_t <- UniGASSpec(
-  Dist = "std",
-  ScalingType = "Identity",
-  GASPar = list(locate = FALSE, scale = TRUE, shape = FALSE)
-)
-ms_spec_n <- CreateSpec(
-  variance.spec = list(model = c("sGARCH", "sGARCH")),
-  switch.spec = list(do.mix = FALSE),
-  distribution.spec = list(distribution = c("norm", "norm"))
-)
-ms_spec_t <- CreateSpec(
-  variance.spec = list(model = c("sGARCH", "sGARCH")),
-  switch.spec = list(do.mix = FALSE),
-  distribution.spec = list(distribution = c("std", "std")),
-  constraint.spec = list(regime.const = c("nu"))
-)
+garch_spec_n <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)), mean.model = list(armaOrder = c(0, 0), include.mean = FALSE), distribution.model = "norm")
+garch_spec_t <- ugarchspec(variance.model = list(model = 'sGARCH', garchOrder = c(1, 1)), mean.model = list(armaOrder = c(0, 0), include.mean = FALSE), distribution.model = "std")
+ms_spec_n <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), switch.spec = list(do.mix = FALSE), distribution.spec = list(distribution = c("norm", "norm")))
+ms_spec_t <- CreateSpec(variance.spec = list(model = c("sGARCH", "sGARCH")), switch.spec = list(do.mix = FALSE), distribution.spec = list(distribution = c("std", "std")), constraint.spec = list(regime.const = c("nu")))
+figarch_spec_n <- ugarchspec(variance.model = list(model = 'fiGARCH', garchOrder = c(1, 1)), mean.model = list(armaOrder = c(0,0), include.mean = FALSE), distribution = 'norm')  
+figarch_spec_t <- ugarchspec(variance.model = list(model = 'fiGARCH', garchOrder = c(1, 1)), mean.model = list(armaOrder = c(0,0), include.mean = FALSE), distribution = 'std')  
+
 
 if (type == "BR") {
   # data <- logret(read.csv("./Data/precos_diarios_ibrx.csv")[, "PETR4"]) * 100
   # data <- logret(read.csv("./Data/BTCUSDT_1d.csv")[, "Close"]) * 100
   garch_params <- c(0.18, 0.09, 0.89)
-  gas_params <- c(0.03, 0.22, 0.98)
+  figarch_params <- c(0.08, 0.2, 0.5, 0.4)
+  dcs_params <- c(0.74, 0.97, 0.05)
   sv_params <- c(1.74, 0.97, 0.17)
   ms_params <- c(0.005, 0.025, 0.95, 0.1, 0.25, 0.70)
   P <-  matrix(c(0.75, 0.30, 0.25, 0.70), 2, 2, byrow = TRUE) 
@@ -86,10 +65,11 @@ if (type == "US") {
   # colnames(data) <- stringr::str_replace(colnames(data), "Fechamento\najust p/ prov\nEm moeda orig\n", "")
   # data <- logret(na.omit(data$MCS[5000:8000])) * 100
   garch_params <- c(0.37, 0.14, 0.77)
-  gas_params <- c(0.06, 0.34, 0.92)
+  figarch_params <- c(0.02, 0.15, 0.62, 0.48)
+  dcs_params <- c(0.42, 0.92, 0.08)
   sv_params <- c(1.15, 0.90, 0.36)
   ms_params <- c(0.01, 0.16, 0.30, 0.18, 0.46, 0.20)
-  P <- matrix(c(0.98, 0.05, 0.02, 0.95), 2, 2, byrow = TRUE) 
+  P <- matrix(c(0.98, 0.05, 0.02, 0.95), 2, 2, byrow = TRUE)
 }
 
 if (type == "RND") {
@@ -113,18 +93,19 @@ if (type == "RND") {
   }
   
   garch_params <- as.numeric(coef(ugarchfit(garch_spec_t, data, solver = "hybrid")))[1:3]
-  gas_params <- as.numeric(coef(gasfit(gas_spec_t, data)))[c(2, 4, 5)]
+  figarch_params <- as.numeric(coef(ugarchfit(figarch_spec_t, data, solver = "hybrid")))[1:4]
+  dcs_params <- as.numeric(coef(tegarch(data, asym = FALSE, skew = FALSE)))[1:3]
   sv_params <- as.numeric(svtsample(data)$summary$para[c(1, 2, 3), 1])
   aux_ms <- as.numeric(msgarchfit(ms_spec_t, data)$par)
   ms_params <- aux_ms[c(1, 2, 3, 5, 6, 7)]
   P <- matrix(c(aux_ms[9], aux_ms[10], 1 - aux_ms[9], 1- aux_ms[10]), 2, 2, byrow = TRUE) 
 }
-colnames(aux)[ii]
+#colnames(aux)[ii]
 
-true_vols_n <- matrix(NA, ncol = 4, nrow = mc)
-fore_vols_n <- matrix(NA, ncol = 32, nrow = mc)
-true_vols_t <- matrix(NA, ncol = 4, nrow = mc)
-fore_vols_t <- matrix(NA, ncol = 32, nrow = mc)
+true_vols_n <- matrix(NA, ncol = n_dgps, nrow = mc)
+fore_vols_n <- matrix(NA, ncol = (2 * n_dgps) * n_dgps, nrow = mc)
+true_vols_t <- matrix(NA, ncol = n_dgps, nrow = mc)
+fore_vols_t <- matrix(NA, ncol = (2 * n_dgps) * n_dgps, nrow = mc)
 for (i in 1:mc) {
   set.seed(i + 123)
   print(i)
@@ -133,9 +114,13 @@ for (i in 1:mc) {
   while (abs(acf(tail(garch_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
     garch_sim_n <- garch_sim(2500 + 1, garch_params, "norm")
   }
-  gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
-  while (abs(acf(tail(gas_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
-    gas_sim_n <- gas_sim(2500 + 1, gas_params, "norm")
+  figarch_sim_n <- figarch_sim(2500 + 1, figarch_params, "norm")
+  while (abs(acf(tail(figarch_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    figarch_sim_n <- figarch_sim(2500 + 1, figarch_params, "norm")
+  }
+  dcs_sim_n <- dcs_sim(2500 + 1, dcs_params, "norm")
+  while (abs(acf(tail(dcs_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    dcs_sim_n <- dcs_sim(2500 + 1, dcs_params, "norm")
   }
   sv_sim_n <- sv_sim(2500 + 1, sv_params, "norm")
   while (abs(acf(tail(sv_sim_n$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
@@ -149,9 +134,13 @@ for (i in 1:mc) {
   while (abs(acf(tail(garch_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
     garch_sim_t <- garch_sim(2500 + 1, c(garch_params, 7), "std")
   }
-  gas_sim_t <- gas_sim(2500 + 1, c(gas_params, -2.6625878), "std")
-  while (abs(acf(tail(gas_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
-    gas_sim_t <- gas_sim(2500 + 1, c(gas_params, -2.6625878), "std")
+  figarch_sim_t <- figarch_sim(2500 + 1, c(figarch_params, 7), "std")
+  while (abs(acf(tail(figarch_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    figarch_sim_t <- figarch_sim(2500 + 1, c(figarch_params, 7), "std")
+  }
+  dcs_sim_t <- dcs_sim(2500 + 1, c(dcs_params, 7), "std")
+  while (abs(acf(tail(dcs_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
+    dcs_sim_t <- dcs_sim(2500 + 1, c(dcs_params, 7), "std")
   }
   sv_sim_t <- sv_sim(2500 + 1, c(sv_params, 7), "std")
   while (abs(acf(tail(sv_sim_t$returns^2, 500), plot = FALSE)$acf[2]) < 2/sqrt(500)) {
@@ -164,12 +153,14 @@ for (i in 1:mc) {
   
 
   r_garch_sim_n <- tail(garch_sim_n$returns, n + 1)[1:n]
-  r_gas_sim_n <- tail(gas_sim_n$returns, n + 1)[1:n]
+  r_figarch_sim_n <- tail(figarch_sim_n$returns, n + 1)[1:n]
+  r_dcs_sim_n <- tail(dcs_sim_n$returns, n + 1)[1:n]
   r_sv_sim_n <- tail(sv_sim_n$returns, n + 1)[1:n]
   r_ms_sim_n <- tail(ms_sim_n$returns, n + 1)[1:n]
 
   r_garch_sim_t <- tail(garch_sim_t$returns, n + 1)[1:n]
-  r_gas_sim_t <- tail(gas_sim_t$returns, n + 1)[1:n]
+  r_figarch_sim_t <- tail(figarch_sim_t$returns, n + 1)[1:n]
+  r_dcs_sim_t <- tail(dcs_sim_t$returns, n + 1)[1:n]
   r_sv_sim_t <- tail(sv_sim_t$returns, n + 1)[1:n]
   r_ms_sim_t <- tail(ms_sim_t$returns, n + 1)[1:n]
 
@@ -177,138 +168,167 @@ for (i in 1:mc) {
   if (outliers == "TRUE") {
     outlier_position <- floor(runif(1, n - 22, n)) + 1
 
-    r_garch_sim_n[outlier_position] <- r_garch_sim_n[outlier_position] +
-      sign(r_garch_sim_n[outlier_position]) * 5 * sd(r_garch_sim_n)
-    r_gas_sim_n[outlier_position] <- r_gas_sim_n[outlier_position] +
-      sign(r_gas_sim_n[outlier_position]) * 5 * sd(r_gas_sim_n)
-    r_sv_sim_n[outlier_position] <- r_sv_sim_n[outlier_position] +
-      sign(r_sv_sim_n[outlier_position]) * 5 * sd(r_sv_sim_n)
-    r_ms_sim_n[outlier_position] <- r_ms_sim_n[outlier_position] +
-      sign(r_ms_sim_n[outlier_position]) * 5 * sd(r_ms_sim_n)
+    r_garch_sim_n[outlier_position] <- r_garch_sim_n[outlier_position] + sign(r_garch_sim_n[outlier_position]) * 5 * sd(r_garch_sim_n)
+    r_figarch_sim_n[outlier_position] <- r_figarch_sim_n[outlier_position] + sign(r_figarch_sim_n[outlier_position]) * 5 * sd(r_figarch_sim_n)
+    r_dcs_sim_n[outlier_position] <- r_dcs_sim_n[outlier_position] + sign(r_dcs_sim_n[outlier_position]) * 5 * sd(r_dcs_sim_n)
+    r_sv_sim_n[outlier_position] <- r_sv_sim_n[outlier_position] + sign(r_sv_sim_n[outlier_position]) * 5 * sd(r_sv_sim_n)
+    r_ms_sim_n[outlier_position] <- r_ms_sim_n[outlier_position] + sign(r_ms_sim_n[outlier_position]) * 5 * sd(r_ms_sim_n)
 
-    r_garch_sim_t[outlier_position] <- r_garch_sim_t[outlier_position] +
-      sign(r_garch_sim_t[outlier_position]) * 5 * sd(r_garch_sim_t)
-    r_gas_sim_t[outlier_position] <- r_gas_sim_t[outlier_position] +
-      sign(r_gas_sim_t[outlier_position]) * 5 * sd(r_gas_sim_t)
-    r_sv_sim_t[outlier_position] <- r_sv_sim_t[outlier_position] +
-      sign(r_sv_sim_t[outlier_position]) * 5 * sd(r_sv_sim_t)
-    r_ms_sim_t[outlier_position] <- r_ms_sim_t[outlier_position] +
-      sign(r_ms_sim_t[outlier_position]) * 5 * sd(r_ms_sim_t)
+    r_garch_sim_t[outlier_position] <- r_garch_sim_t[outlier_position] + sign(r_garch_sim_t[outlier_position]) * 5 * sd(r_garch_sim_t)
+    r_figarch_sim_t[outlier_position] <- r_figarch_sim_t[outlier_position] + sign(r_figarch_sim_t[outlier_position]) * 5 * sd(r_figarch_sim_t)
+    r_dcs_sim_t[outlier_position] <- r_dcs_sim_t[outlier_position] + sign(r_dcs_sim_t[outlier_position]) * 5 * sd(r_dcs_sim_t)
+    r_sv_sim_t[outlier_position] <- r_sv_sim_t[outlier_position] + sign(r_sv_sim_t[outlier_position]) * 5 * sd(r_sv_sim_t)
+    r_ms_sim_t[outlier_position] <- r_ms_sim_t[outlier_position] + sign(r_ms_sim_t[outlier_position]) * 5 * sd(r_ms_sim_t)
   }
 
   # Fit the models
   garch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
-  garch_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_n), H = 1)@Forecast$PointForecast[, 2])
+  garch_n_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_garch_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  garch_n_dcs_n <- tail(vol_dcsm(r_garch_sim_n, dcsn_fit(r_garch_sim_n)), 1)
   garch_n_sv_n <- median(predict(estimate_parameters_n(r_garch_sim_n), steps = 1)$h_exp)
   garch_n_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_n), nahead = 1)$vol
   garch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_n, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_garch_sim_n)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  garch_n_gas_t <- sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  garch_n_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_garch_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  garch_n_dcs_t <- predict(tegarch(r_garch_sim_n, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   garch_n_sv_t <- median(predict(estimate_parameters_t(r_garch_sim_n), steps = 1)$h_exp)
   garch_n_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_n), nahead = 1)$vol
   
   garch_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
-  garch_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_garch_sim_t), H = 1)@Forecast$PointForecast[, 2])
+  garch_t_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_garch_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  garch_t_dcs_n <- tail(vol_dcsm(r_garch_sim_t, dcsn_fit(r_garch_sim_t)), 1)
   garch_t_sv_n <- median(predict(estimate_parameters_n(r_garch_sim_t), steps = 1)$h_exp)
   garch_t_ms_n <- predict(msgarchfit(ms_spec_n, r_garch_sim_t), nahead = 1)$vol
   garch_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_garch_sim_t, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_garch_sim_t)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  garch_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  garch_t_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_garch_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  garch_t_dcs_t <- predict(tegarch(r_garch_sim_t, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   garch_t_sv_t <- median(predict(estimate_parameters_t(r_garch_sim_t), steps = 1)$h_exp)
   garch_t_ms_t <- predict(msgarchfit(ms_spec_t, r_garch_sim_t), nahead = 1)$vol
+  
+  
+  figarch_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_figarch_sim_n, solver = "hybrid"), n.ahead = 1)))
+  figarch_n_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_figarch_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  figarch_n_dcs_n <-  tail(vol_dcsm(r_figarch_sim_n, dcsn_fit(r_figarch_sim_n)), 1)
+  figarch_n_sv_n <- median(predict(estimate_parameters_n(r_figarch_sim_n), steps = 1)$h_exp)
+  figarch_n_ms_n <- predict(msgarchfit(ms_spec_n, r_figarch_sim_n), nahead = 1)$vol
+  figarch_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_figarch_sim_n, solver = "hybrid"), n.ahead = 1)))
+  figarch_n_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_figarch_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  figarch_n_dcs_t <- predict(tegarch(r_figarch_sim_n, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
+  figarch_n_sv_t <- median(predict(estimate_parameters_t(r_figarch_sim_n), steps = 1)$h_exp)
+  figarch_n_ms_t <- predict(msgarchfit(ms_spec_t, r_figarch_sim_n), nahead = 1)$vol
+  
+  figarch_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_figarch_sim_t, solver = "hybrid"), n.ahead = 1)))
+  figarch_t_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_figarch_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  figarch_t_dcs_n <- tail(vol_dcsm(r_figarch_sim_t, dcsn_fit(r_figarch_sim_t)), 1)
+  figarch_t_sv_n <- median(predict(estimate_parameters_n(r_figarch_sim_t), steps = 1)$h_exp)
+  figarch_t_ms_n <- predict(msgarchfit(ms_spec_n, r_figarch_sim_t), nahead = 1)$vol
+  figarch_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_figarch_sim_t, solver = "hybrid"), n.ahead = 1)))
+  figarch_t_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_figarch_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  figarch_t_dcs_t <- predict(tegarch(r_figarch_sim_t, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
+  figarch_t_sv_t <- median(predict(estimate_parameters_t(r_figarch_sim_t), steps = 1)$h_exp)
+  figarch_t_ms_t <- predict(msgarchfit(ms_spec_t, r_figarch_sim_t), nahead = 1)$vol
 
-  gas_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
-  gas_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_n), H = 1)@Forecast$PointForecast[, 2])
-  gas_n_sv_n <- median(predict(estimate_parameters_n(r_gas_sim_n), steps = 1)$h_exp)
-  gas_n_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_n), nahead = 1)$vol
-  gas_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_n, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_gas_sim_n)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  gas_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  gas_n_sv_t <- median(predict(estimate_parameters_t(r_gas_sim_n), steps = 1)$h_exp)
-  gas_n_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_n), nahead = 1)$vol
+  
+  dcs_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_dcs_sim_n, solver = "hybrid"), n.ahead = 1)))
+  dcs_n_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_dcs_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  dcs_n_dcs_n <- tail(vol_dcsm(r_dcs_sim_n, dcsn_fit(r_dcs_sim_n)), 1)
+  dcs_n_sv_n <- median(predict(estimate_parameters_n(r_dcs_sim_n), steps = 1)$h_exp)
+  dcs_n_ms_n <- predict(msgarchfit(ms_spec_n, r_dcs_sim_n), nahead = 1)$vol
+  dcs_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_dcs_sim_n, solver = "hybrid"), n.ahead = 1)))
+  dcs_n_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_dcs_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  dcs_n_dcs_t <-  predict(tegarch(r_dcs_sim_n, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
+  dcs_n_sv_t <- median(predict(estimate_parameters_t(r_dcs_sim_n), steps = 1)$h_exp)
+  dcs_n_ms_t <- predict(msgarchfit(ms_spec_t, r_dcs_sim_n), nahead = 1)$vol
 
-  gas_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
-  gas_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_gas_sim_t),H = 1)@Forecast$PointForecast[, 2])
-  gas_t_sv_n <-  median(predict(estimate_parameters_n(r_gas_sim_t), steps = 1)$h_exp)
-  gas_t_ms_n <- predict(msgarchfit(ms_spec_n, r_gas_sim_t), nahead = 1)$vol
-  gas_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_gas_sim_t, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_gas_sim_t)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  gas_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
-  gas_t_sv_t <- median(predict(estimate_parameters_t(r_gas_sim_t), steps = 1)$h_exp)
-  gas_t_ms_t <- predict(msgarchfit(ms_spec_t, r_gas_sim_t), nahead = 1)$vol
+  dcs_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_dcs_sim_t, solver = "hybrid"), n.ahead = 1)))
+  dcs_t_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_dcs_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  dcs_t_dcs_n <- tail(vol_dcsm(r_dcs_sim_t, dcsn_fit(r_dcs_sim_t)), 1)
+  dcs_t_sv_n <-  median(predict(estimate_parameters_n(r_dcs_sim_t), steps = 1)$h_exp)
+  dcs_t_ms_n <- predict(msgarchfit(ms_spec_n, r_dcs_sim_t), nahead = 1)$vol
+  dcs_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_dcs_sim_t, solver = "hybrid"), n.ahead = 1)))
+  dcs_t_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_dcs_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  dcs_t_dcs_t <- predict(tegarch(r_dcs_sim_t, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
+  dcs_t_sv_t <- median(predict(estimate_parameters_t(r_dcs_sim_t), steps = 1)$h_exp)
+  dcs_t_ms_t <- predict(msgarchfit(ms_spec_t, r_dcs_sim_t), nahead = 1)$vol
 
+  
   sv_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
-  sv_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_n), H = 1)@Forecast$PointForecast[, 2])
+  sv_n_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_sv_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  sv_n_dcs_n <- tail(vol_dcsm(r_sv_sim_n, dcsn_fit(r_sv_sim_n)), 1)
   sv_n_sv_n <- median(predict(estimate_parameters_n(r_sv_sim_n), steps = 1)$h_exp)
   sv_n_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_n), nahead = 1)$vol
   sv_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_n, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_sv_sim_n)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  sv_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  sv_n_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_sv_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  sv_n_dcs_t <- predict(tegarch(r_sv_sim_n, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   sv_n_sv_t <- median(predict(estimate_parameters_t(r_sv_sim_n), steps = 1)$h_exp)
   sv_n_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_n), nahead = 1)$vol
 
   sv_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
-  sv_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_sv_sim_t), H = 1)@Forecast$PointForecast[, 2])
+  sv_t_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_sv_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  sv_t_dcs_n <- tail(vol_dcsm(r_sv_sim_t, dcsn_fit(r_sv_sim_t)), 1)
   sv_t_sv_n <- median(predict(estimate_parameters_n(r_sv_sim_t), steps = 1)$h_exp)
   sv_t_ms_n <- predict(msgarchfit(ms_spec_n, r_sv_sim_t), nahead = 1)$vol
   sv_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_sv_sim_t, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_sv_sim_t)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  sv_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  sv_t_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_sv_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  sv_t_dcs_t <- predict(tegarch(r_sv_sim_t, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   sv_t_sv_t <- median(predict(estimate_parameters_t(r_sv_sim_t), steps = 1)$h_exp)
   sv_t_ms_t <- predict(msgarchfit(ms_spec_t, r_sv_sim_t), nahead = 1)$vol
 
+  
   ms_n_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
-  ms_n_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_n), H = 1)@Forecast$PointForecast[, 2])
+  ms_n_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_ms_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  ms_n_dcs_n <- tail(vol_dcsm(r_ms_sim_n, dcsn_fit(r_ms_sim_n)), 1)
   ms_n_sv_n <- median(predict(estimate_parameters_n(r_ms_sim_n), steps = 1)$h_exp)
   ms_n_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_n), nahead = 1)$vol
   ms_n_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_n, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_ms_sim_n)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  ms_n_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  ms_n_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_ms_sim_n, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  ms_n_dcs_t <-  predict(tegarch(r_ms_sim_n, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   ms_n_sv_t <- median(predict(estimate_parameters_t(r_ms_sim_n), steps = 1)$h_exp)
   ms_n_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_n), nahead = 1)$vol
 
   ms_t_garch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_n, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
-  ms_t_gas_n <- sqrt(UniGASFor(gasfit(gas_spec_n, r_ms_sim_t), H = 1)@Forecast$PointForecast[, 2])
+  ms_t_figarch_n <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_n, r_ms_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  ms_t_dcs_n <- tail(vol_dcsm(r_ms_sim_t, dcsn_fit(r_ms_sim_t)), 1)
   ms_t_sv_n <- median(predict(estimate_parameters_n(r_ms_sim_t), steps = 1)$h_exp)
   ms_t_ms_n <- predict(msgarchfit(ms_spec_n, r_ms_sim_t), nahead = 1)$vol
   ms_t_garch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(garch_spec_t, r_ms_sim_t, solver = "hybrid"), n.ahead = 1)))
-  aux_gas_t <- gasfit(gas_spec_t, r_ms_sim_t)
-    nu <- aux_gas_t@GASDyn$mTheta[3, 1]
-  ms_t_gas_t <-  sqrt(UniGASFor(aux_gas_t, H = 1)@Forecast$PointForecast[, 2]) * sqrt(nu / (nu - 2))
+  ms_t_figarch_t <- as.numeric(sigma(ugarchforecast(ugarchfit(figarch_spec_t, r_ms_sim_t, solver = "hybrid", fit.control = list(trunclag = min(n, 1000))), n.ahead = 1)))
+  ms_t_dcs_t <-  predict(tegarch(r_ms_sim_t, asym = FALSE, skew = FALSE, components = 1, hessian = FALSE), n.ahead = 1, verbose=TRUE)$stdev
   ms_t_sv_t <- median(predict(estimate_parameters_t(r_ms_sim_t), steps = 1)$h_exp)
   ms_t_ms_t <- predict(msgarchfit(ms_spec_t, r_ms_sim_t), nahead = 1)$vol
+  
 
-  true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(gas_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$volatility[, 3], 1))
-  true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(gas_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$volatility[, 3], 1))
-  fore_vols_n[i, ] <- c(garch_n_garch_n, garch_n_garch_t, garch_n_gas_n, garch_n_gas_t, garch_n_sv_n, garch_n_sv_t,  garch_n_ms_n, garch_n_ms_t,
-                        gas_n_garch_n, gas_n_garch_t, gas_n_gas_n, gas_n_gas_t, gas_n_sv_n, gas_n_sv_t,  gas_n_ms_n, gas_n_ms_t,
-                        sv_n_garch_n, sv_n_garch_t, sv_n_gas_n, sv_n_gas_t, sv_n_sv_n, sv_n_sv_t, sv_n_ms_n, sv_n_ms_t,
-                        ms_n_garch_n, ms_n_garch_t, ms_n_gas_n, ms_n_gas_t, ms_n_sv_n, ms_n_sv_t, ms_n_ms_n, ms_n_ms_t)
-  fore_vols_t[i, ] <- c(garch_t_garch_n, garch_t_garch_t, garch_t_gas_n, garch_t_gas_t, garch_t_sv_n, garch_t_sv_t, garch_t_ms_n, garch_t_ms_t,
-                        gas_t_garch_n, gas_t_garch_t, gas_t_gas_n, gas_t_gas_t, gas_t_sv_n, gas_t_sv_t, gas_t_ms_n, gas_t_ms_t,
-                        sv_t_garch_n, sv_t_garch_t, sv_t_gas_n, sv_t_gas_t, sv_t_sv_n, sv_t_sv_t, sv_t_ms_n, sv_t_ms_t,
-                        ms_t_garch_n, ms_t_garch_t, ms_t_gas_n, ms_t_gas_t, ms_t_sv_n, ms_t_sv_t, ms_t_ms_n, ms_t_ms_t)
+  true_vols_n[i, ] <- c(tail(garch_sim_n$volatility, 1), tail(dcs_sim_n$volatility, 1), tail(sv_sim_n$volatility, 1), tail(ms_sim_n$volatility[, 3], 1), tail(figarch_sim_n$volatility, 1))
+  true_vols_t[i, ] <- c(tail(garch_sim_t$volatility, 1), tail(dcs_sim_t$volatility, 1), tail(sv_sim_t$volatility, 1), tail(ms_sim_t$volatility[, 3], 1), tail(figarch_sim_t$volatility, 1))
+  fore_vols_n[i, ] <- c(garch_n_garch_n, garch_n_garch_t, garch_n_dcs_n, garch_n_dcs_t, garch_n_sv_n, garch_n_sv_t,  garch_n_ms_n, garch_n_ms_t, garch_n_figarch_n, garch_n_figarch_t,
+                        dcs_n_garch_n, dcs_n_garch_t, dcs_n_dcs_n, dcs_n_dcs_t, dcs_n_sv_n, dcs_n_sv_t,  dcs_n_ms_n, dcs_n_ms_t, dcs_n_figarch_n, dcs_n_figarch_t, 
+                        sv_n_garch_n, sv_n_garch_t, sv_n_dcs_n, sv_n_dcs_t, sv_n_sv_n, sv_n_sv_t, sv_n_ms_n, sv_n_ms_t, sv_n_figarch_n, sv_n_figarch_t,
+                        ms_n_garch_n, ms_n_garch_t, ms_n_dcs_n, ms_n_dcs_t, ms_n_sv_n, ms_n_sv_t, ms_n_ms_n, ms_n_ms_t, ms_n_figarch_n, ms_n_figarch_t,
+                        figarch_n_garch_n, figarch_n_garch_t, figarch_n_dcs_n, figarch_n_dcs_t, figarch_n_sv_n, figarch_n_sv_t,  figarch_n_ms_n, figarch_n_ms_t, figarch_n_figarch_n, figarch_n_figarch_t)
+  fore_vols_t[i, ] <- c(garch_t_garch_n, garch_t_garch_t, garch_t_dcs_n, garch_t_dcs_t, garch_t_sv_n, garch_t_sv_t, garch_t_ms_n, garch_t_ms_t, garch_t_figarch_n, garch_t_figarch_t,
+                        dcs_t_garch_n, dcs_t_garch_t, dcs_t_dcs_n, dcs_t_dcs_t, dcs_t_sv_n, dcs_t_sv_t, dcs_t_ms_n, dcs_t_ms_t, dcs_t_figarch_n, dcs_t_figarch_t,
+                        sv_t_garch_n, sv_t_garch_t, sv_t_dcs_n, sv_t_dcs_t, sv_t_sv_n, sv_t_sv_t, sv_t_ms_n, sv_t_ms_t, sv_t_figarch_n, sv_t_figarch_t,
+                        ms_t_garch_n, ms_t_garch_t, ms_t_dcs_n, ms_t_dcs_t, ms_t_sv_n, ms_t_sv_t, ms_t_ms_n, ms_t_ms_t, ms_t_figarch_n, ms_t_figarch_t,
+                        figarch_t_garch_n, figarch_t_garch_t, figarch_t_dcs_n, figarch_t_dcs_t, figarch_t_sv_n, figarch_t_sv_t, figarch_t_ms_n, figarch_t_ms_t, figarch_t_figarch_n, figarch_t_figarch_t)
+  
+  if (garch_n_garch_n > 10 || garch_t_dcs_n > 10 || dcs_n_dcs_n > 10 || dcs_t_dcs_n > 10 || sv_n_dcs_n > 10 || sv_t_dcs_n > 10 || ms_n_dcs_n > 10 || ms_t_dcs_n > 10 || figarch_n_dcs_n > 10 || figarch_t_dcs_n > 10) {
+    break
+  }
 }
 
 volatilities_n <- cbind(true_vols_n, fore_vols_n)
 volatilities_t <- cbind(true_vols_t, fore_vols_t)
-colnames(volatilities_n) <- c("garch", "gas", "sv", "ms",
-  "garch_n_garch_n", "garch_n_garch_t", "garch_n_gas_n", "garch_n_gas_t", "garch_n_sv_n", "garch_n_sv_t", "garch_n_ms_n", "garch_n_ms_t",
-  "gas_n_garch_n", "gas_n_garch_t", "gas_n_gas_n", "gas_n_gas_t", "gas_n_sv_n", "gas_n_sv_t", "gas_n_ms_n", "gas_n_ms_t",
-  "sv_n_garch_n", "sv_n_garch_t", "sv_n_gas_n", "sv_n_gas_t", "sv_n_sv_n", "sv_n_sv_t", "sv_n_ms_n", "sv_n_ms_t",
-  "ms_n_garch_n", "ms_n_garch_t", "ms_n_gas_n", "ms_n_gas_t", "ms_n_sv_n", "ms_n_sv_t", "ms_n_ms_n", "ms_n_ms_t")
-colnames(volatilities_t) <- c("garch", "gas", "sv", "ms",
-  "garch_t_garch_n", "garch_t_garch_t", "garch_t_gas_n", "garch_t_gas_t", "garch_t_sv_n", "garch_t_sv_t", "garch_t_ms_n", "garch_t_ms_t",
-  "gas_t_garch_n", "gas_t_garch_t", "gas_t_gas_n", "gas_t_gas_t", "gas_t_sv_n", "gas_t_sv_t", "gas_t_ms_n", "gas_t_ms_t",
-  "sv_t_garch_n", "sv_t_garch_t", "sv_t_gas_n", "sv_t_gas_t", "sv_t_sv_n", "sv_t_sv_t", "sv_t_ms_n", "sv_t_ms_t",
-  "ms_t_garch_n", "ms_t_garch_t", "ms_t_gas_n", "ms_t_gas_t", "ms_t_sv_n", "ms_t_sv_t", "ms_t_ms_n", "ms_t_ms_t")
+colnames(volatilities_n) <- c("garch", "dcs", "sv", "ms", "figarch",
+  "garch_n_garch_n", "garch_n_garch_t", "garch_n_dcs_n", "garch_n_dcs_t", "garch_n_sv_n", "garch_n_sv_t", "garch_n_ms_n", "garch_n_ms_t", "garch_n_figarch_n", "garch_n_figarch_t",
+  "dcs_n_garch_n", "dcs_n_garch_t", "dcs_n_dcs_n", "dcs_n_dcs_t", "dcs_n_sv_n", "dcs_n_sv_t", "dcs_n_ms_n", "dcs_n_ms_t", "dcs_n_figarch_n", "dcs_n_figarch_t",
+  "sv_n_garch_n", "sv_n_garch_t", "sv_n_dcs_n", "sv_n_dcs_t", "sv_n_sv_n", "sv_n_sv_t", "sv_n_ms_n", "sv_n_ms_t", "sv_n_figarch_n", "sv_n_figarch_t",
+  "ms_n_garch_n", "ms_n_garch_t", "ms_n_dcs_n", "ms_n_dcs_t", "ms_n_sv_n", "ms_n_sv_t", "ms_n_ms_n", "ms_n_ms_t", "ms_n_figarch_n", "ms_n_figarch_t",
+  "figarch_n_garch_n", "figarch_n_garch_t", "figarch_n_dcs_n", "figarch_n_dcs_t", "figarch_n_sv_n", "figarch_n_sv_t", "figarch_n_ms_n", "figarch_n_ms_t", "figarch_n_figarch_n", "figarch_n_figarch_t")
+colnames(volatilities_t) <- c("garch", "dcs", "sv", "ms", "figarch",
+  "garch_t_garch_n", "garch_t_garch_t", "garch_t_dcs_n", "garch_t_dcs_t", "garch_t_sv_n", "garch_t_sv_t", "garch_t_ms_n", "garch_t_ms_t", "garch_t_figarch_n", "garch_t_figarch_t",
+  "dcs_t_garch_n", "dcs_t_garch_t", "dcs_t_dcs_n", "dcs_t_dcs_t", "dcs_t_sv_n", "dcs_t_sv_t", "dcs_t_ms_n", "dcs_t_ms_t", "dcs_t_figarch_n", "dcs_t_figarch_t",
+  "sv_t_garch_n", "sv_t_garch_t", "sv_t_dcs_n", "sv_t_dcs_t", "sv_t_sv_n", "sv_t_sv_t", "sv_t_ms_n", "sv_t_ms_t", "sv_t_figarch_n", "sv_t_figarch_t",
+  "ms_t_garch_n", "ms_t_garch_t", "ms_t_dcs_n", "ms_t_dcs_t", "ms_t_sv_n", "ms_t_sv_t", "ms_t_ms_n", "ms_t_ms_t", "ms_t_figarch_n", "ms_t_figarch_t", 
+  "figarch_t_garch_n", "figarch_t_garch_t", "figarch_t_dcs_n", "figarch_t_dcs_t", "figarch_t_sv_n", "figarch_t_sv_t", "figarch_t_ms_n", "figarch_t_ms_t", "figarch_t_figarch_n", "figarch_t_figarch_t")
 
 
 if (type == "RND") {

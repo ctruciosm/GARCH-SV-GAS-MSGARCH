@@ -2,6 +2,34 @@
 #####                                DGPs                                 #####
 ################################################################################
 
+figarch_sim <- function(n, params, distri) {
+  m <- 1000
+  n_burnin <- 5000 + m
+  n_tot <- n_burnin + n
+  sigma2 <- rep(params[1] / (1 - params[2] - params[3]), n_tot)
+  ret <- rep(0, n_tot)
+  
+  if (distri == "std") {
+    epsilon <- rt(n_tot, df = params[5]) * sqrt((params[5] - 2) / params[5])
+  } else {
+    epsilon <-  rnorm(n_tot)
+  }
+  
+  for (k in 2:n_tot) {
+    frac_part <- 0
+    for (j in 1:min(k - 1, m)) {
+      if (k - 1 - j> 0) {
+        frac_part <- frac_part + params[4] * exp(lgamma(j - params[4]) - lgamma(1 - params[4]) - lgamma(j + 1)) * (ret[k - j]^2 - params[2] * ret[k - 1 - j]^2)
+      } else {
+        frac_part <- frac_part + params[4] * exp(lgamma(j - params[4]) - lgamma(1 - params[4]) - lgamma(j + 1)) * ret[k - j]^2
+      }
+    }
+    sigma2[k] <- params[1] + (params[2] - params[3]) * ret[k - 1]^2 + params[3] * sigma2[k - 1] + frac_part
+    ret[k] <- sqrt(sigma2[k]) * epsilon[k]
+  }
+  return(list(returns = tail(ret, n), volatility = sqrt(tail(sigma2, n)), e = tail(epsilon, n)))
+}
+#dados <- figarch_sim(10000, c(0.08, 0.2, 0.5, 0.4, 7), "norm")
 
 garch_sim <- function(n, params, distri) { 
   n_burnin <- 500
@@ -23,7 +51,7 @@ garch_sim <- function(n, params, distri) {
   }
   return(list(returns = ret[-c(1:n_burnin)], volatility = sqrt(sigma2[-c(1:n_burnin)]), e = epsilon[-c(1:n_burnin)]))
 }
-#dados <- garch_sim(10000, c(0.01, 0.1, 0.86, 7), "std")
+#data <- garch_sim(10000, c(0.01, 0.9, 0.2), "norm")$returns
 
 sv_sim <- function(n, params, distri) {
   n_burnin <- 500
@@ -47,43 +75,6 @@ sv_sim <- function(n, params, distri) {
   return(list(returns = ret[-c(1:n_burnin)], volatility = exp(h[-c(1:n_burnin)]/2), e = epsilon[-c(1:n_burnin)]))
 }
 #dados <- sv_sim(10000, c(1.68, 0.95, 0.23, 7), "std")
-
-sv_sim_package <- function(n, params, distri) {
-  if (distri == "std") {
-    aux <- svsim(n, params[1], params[2], params[3], params[4])
-    ret <- aux$y
-    vol <- aux$vol
-    e <- ret/vol
-  } else {
-    aux <- svsim(n, params[1], params[2], params[3])
-    ret <- aux$y
-    vol <- aux$vol
-    e <- ret/vol
-  }
-  return(list(returns = ret, volatility = vol, e = e))
-}
-
-gas_sim <- function(n, params, distri) {
-  n_burnin <- 500
-  n_tot <- n_burnin + n
- 
-  if (distri == "norm") {
-    A <- diag(c(0.0, params[2]))
-    B <- diag(c(0.0, params[3]))
-    k <- c(0, params[1])
-    Sim <- UniGASSim(T.sim = n_tot, kappa = k, A = A, B = B, Dist = "norm", ScalingType = "Identity")
-    out <- list(returns = Sim@GASDyn$vY[-c(1:n_burnin)], volatility = head(sqrt(Sim@GASDyn$mTheta[2, -c(1:n_burnin)]), n), e = Sim@GASDyn$mInnovations[1,-c(1:n_burnin)])
-  } else {
-    A <- diag(c(0.0, params[2], 0.0))
-    B <- diag(c(0.0, params[3], 0.0))
-    k <- c(0, params[1], params[4])
-    Sim <- UniGASSim(T.sim = n_tot, kappa = k, A = A, B = B, Dist = "std", ScalingType = "Identity")
-    out <- list(returns = Sim@GASDyn$vY[-c(1:n_burnin)], volatility = head(sqrt(Sim@GASDyn$mTheta[2, -c(1:n_burnin)]) * sqrt(7/5), n), e = Sim@GASDyn$mInnovations[1,-c(1:n_burnin)]/sqrt(7/5))
-  }
-  return(out)
-}
-#dados <- gas_sim(100000, c(0.04, 0.22, 0.96, -2.6625878), "std"). # -2.6625878 is equivalento to 7 d.f
-
 
 msgarch_sim <- function(n, params, distri, P) {
   k <- 2
@@ -124,17 +115,17 @@ msgarch_sim <- function(n, params, distri, P) {
   M[4, 2] <- P[2, 1] * (alpha[2] + beta[2])
   M[4, 3] <- 0
   M[4, 4] <- P[2, 2] * (alpha[2] + beta[2])
-    
+  
   Pt[1] <- (1 - q) / (2 - p - q)       
   pi_inf <- c(Pt[1], 1 - Pt[1])     
-    
+  
   h[1, 1:k] <- matrix(c(1, 0, 1, 0, 0, 1, 0, 1), 2, 4, byrow = TRUE) %*% solve(I4 - M) %*% kronecker(pi_inf, omega)
   h[1, k + 1] <- Pt[1] * h[1, 1] + (1 - Pt[1]) * h[1, 2]
-    
+  
   s <- numeric(n_tot)
   s[1] <- 1
   ret[1] <- epsilon[1] * sqrt(h[1, s[1]])
-    
+  
   if (distri == "norm") {
     for (i in 2:n_tot) {
       h[i, 1:k] <- omega + alpha * ret[i - 1]^2 + beta * h[i - 1, 1:k]
@@ -154,4 +145,34 @@ msgarch_sim <- function(n, params, distri, P) {
   }
   return(list(returns = ret[-c(1:n_burnin)], volatility = sqrt(h[-c(1:n_burnin), ]), e = epsilon[-c(1:n_burnin)], s = s[-c(1:n_burnin)]))
 }
+
+dcs_sim <- function(n, params, distri) {
+  n_burnin <- 500
+  n_tot <- n_burnin + n
+  if (distri == "norm") {
+    #Sim <- tegarchSim(n_tot, omega = params[1], phi1 = params[2], phi2 = 0, kappa1 = params[3], kappa2 = 0, kappastar = 0, df = 1200, skew = 1, verbose = TRUE)
+    #out <- list(returns = Sim$y[-c(1:n_burnin)], volatility = Sim$stdev[-c(1:n_burnin)], e = Sim$epsilon[-c(1:n_burnin)])
+    lambda <- rep(NA, n_tot)
+    u <- rep(NA, n_tot)
+    ret <- rep(NA, n_tot)
+    lambda[1] <- params[1]
+    epsilon <-  rnorm(n_tot)
+    ret[1] <- exp(lambda[1]) * epsilon[1]
+    u[1] <- ret[1]^2 / exp(2 * lambda[1]) - 1
+    for (i in 2:n_tot) {
+      lambda[i] <- params[1] * (1 - params[2])  + params[2] * lambda[i - 1] + params[3] * u[i - 1]
+      ret[i] <- exp(lambda[i]) * epsilon[i]
+      u[i] <- ret[i]^2 / exp(2 * lambda[i]) - 1
+    }
+    out <- list(returns = ret[-c(1:n_burnin)], volatility = exp(lambda[-c(1:n_burnin)]), e = epsilon[-c(1:n_burnin)])
+  } else {
+    Sim <- tegarchSim(n_tot, omega = params[1], phi1 = params[2], phi2 = 0, kappa1 = params[3], kappa2 = 0, kappastar = 0, df = params[4], skew = 1, verbose = TRUE)
+    out <- list(returns = as.numeric(Sim$y[-c(1:n_burnin)]), volatility = as.numeric(Sim$stdev[-c(1:n_burnin)]), e = as.numeric(Sim$epsilon[-c(1:n_burnin)]))
+  }
+  return(out) 
+}
+
+
+
+
   

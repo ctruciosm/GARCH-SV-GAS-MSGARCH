@@ -93,41 +93,6 @@ msgarchfit <- function(spec, data) {
   return(fit_model)
 }
 
-
-
-
-
-gasfit <- function(spec, data) {
-  is_error <- TRUE
-  k <- 0
-  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
-  expr <- NULL
-  while (is_error == TRUE) {
-    k <- k + 1
-    tryCatch(
-      expr <- {
-        fit_model <- UniGASFit(spec, data, Compute.SE = FALSE, fn.optimizer = function(par0, data, GASSpec, FUN) {
-          optimizer = optim(par0, FUN, data = data, GASSpec = GASSpec, method = opt_methods[k],
-            control = list(trace = 0), hessian = FALSE)
-          out = list(pars = optimizer$par,
-            value = optimizer$value,
-            hessian = optimizer$hessian,
-            convergence = optimizer$convergence)
-          return(out)
-        })
-      },
-      error = function(e) {
-        is_error <- TRUE
-      })
-    if (!is.null(expr)) {
-      is_error <- FALSE
-    }
-  }
-  return(fit_model)
-}
-
-
-
 estimate_parameters_t <- function (data) {
   obj <- get_nll(data, model = "t", silent = TRUE, hessian = TRUE)
   fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  lower = c(NULL, -5, NULL, NULL), upper = c(NULL, NULL, NULL,  5.52))
@@ -149,8 +114,6 @@ estimate_parameters_t <- function (data) {
   return(opt)
 }
 
-
-
 estimate_parameters_n <- function (data) {
   obj <- get_nll(data, model = "gaussian", silent = TRUE, hessian = TRUE)
   fit <- stats::nlminb(obj$par, obj$fn, obj$gr,  lower = c(NULL, -5, NULL))
@@ -169,4 +132,42 @@ estimate_parameters_n <- function (data) {
   opt$nobs <- length(data)
   opt$model <- "gaussian"
   return(opt)
+}
+
+
+
+
+dcsn_fit <- function(data) {
+  par_ini <- grid_dcsn(data)
+  is_error <- TRUE
+  k <- 0
+  opt_methods <- c("BFGS", "Nelder-Mead", "CG", "SANN")
+  expr <- NULL
+  while (is_error == TRUE) {
+    k <- k + 1
+    tryCatch(
+      expr <- {
+        params <- optim(par = par_ini, dcsn_like, r = data, method = opt_methods[k])$par
+      },
+      error = function(e) {
+        is_error <- TRUE
+      })
+    if (!is.null(expr)) {
+      is_error <- FALSE
+    }
+  }
+  return(params)
+}
+
+vol_dcsm <- function(r, params) {
+  n <- length(r) + 1
+  lambda <- rep(0, n)
+  lambda_star <- rep(0, n)
+  lambda_star[1] <- 0
+  lambda[1] <- params[1]
+  for (i in 2:n) {
+    lambda_star[i] <- params[2] * lambda_star[i - 1] + params[3] * (r[i - 1]^2 / exp(2 * lambda[i - 1]) - 1)
+    lambda[i] <- params[1] + lambda_star[i]
+  }
+  return(exp(lambda))
 }

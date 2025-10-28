@@ -4,7 +4,7 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-SEXP dcsn_like(NumericVector params, NumericVector r){
+double dcsn_like(NumericVector params, NumericVector r){
   int n = r.size();
   NumericVector lambda(n), lambda_star(n), log_lik(n - 1);
   lambda_star[0] = 0.0;
@@ -14,8 +14,7 @@ SEXP dcsn_like(NumericVector params, NumericVector r){
     lambda[i] = params[0] + lambda_star[i];
     log_lik[i - 1] = 0.5* pow(r[i], 2) / exp(2 * lambda[i]) + lambda[i];
   }
-  double out = sum(log_lik);
-  return Rcpp::wrap(out);
+  return sum(log_lik);
 }
 
 
@@ -29,18 +28,17 @@ SEXP grid_dcsn(NumericVector y){
   double lm_omega = (omega_max - omega_min) / n_omega;
   double lm_phi = (phi_max - phi_min) / n_phi;
   double lm_kapa = (kapa_max - kapa_min) / n_kapa;
-  Rcpp::Function dcsn_like("dcsn_like");
-  
+
   for(int no = 0; no < n_omega; no++){
     for(int np = 0; np < n_phi; np++){
       for(int nk =0; nk < n_kapa; nk++){
         omega = omega_min + no * lm_omega;
         phi = phi_min + np * lm_phi; 
-        kapa = kapa_min +nk * lm_kapa;
+        kapa = kapa_min + nk * lm_kapa;
         coeff[0] = omega;
         coeff[1] = phi;
         coeff[2] = kapa;
-        nml = Rcpp::as<double>(dcsn_like(coeff, y));
+        nml = dcsn_like(coeff, y);
         if (nml < ml){
           vi[0] = coeff[0];
           vi[1] = coeff[1];

@@ -2,7 +2,7 @@
 #####                                DGPs                                 #####
 ################################################################################
 
-figarch_sim <- function(n, params, distri) {
+figarch_sim2 <- function(n, params, distri) {
   m <- 1000
   n_burnin <- 5000 + m
   n_tot <- n_burnin + n

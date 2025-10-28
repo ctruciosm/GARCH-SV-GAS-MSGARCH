@@ -37,7 +37,7 @@ if (length(args) > 0) {
     }
   }
 } else {
-  n <- 5000
+  n <- 500
   type <- "US"
   outliers <- "FALSE"
 }

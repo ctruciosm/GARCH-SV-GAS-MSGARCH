@@ -2,7 +2,9 @@
 #####                                DGPs                                 #####
 ################################################################################
 
+
 figarch_sim2 <- function(n, params, distri) {
+  # params = (omega, phi, beta, d)
   m <- 1000
   n_burnin <- 5000 + m
   n_tot <- n_burnin + n
@@ -54,6 +56,7 @@ garch_sim <- function(n, params, distri) {
 #data <- garch_sim(10000, c(0.01, 0.9, 0.2), "norm")$returns
 
 sv_sim <- function(n, params, distri) {
+  # params = [mu, phi, sigma, nu]
   n_burnin <- 500
   n_tot <- n_burnin + n
   h <- rep(NA, n_tot)
@@ -66,15 +69,54 @@ sv_sim <- function(n, params, distri) {
     epsilon <-  rnorm(n_tot)
   }
   
-  h[1] <- rnorm(params[1], params[3]^2 / (1 - params[2]^2))
+  h[1] <- rnorm(1, params[1], params[3] / sqrt(1 - params[2]^2))
   ret[1] <- exp(h[1]/2)*epsilon[1]
-  for (i in 2:n_tot) {
+  for (i in 2 : (n_tot - 1)) {
     h[i] <- params[1] + params[2] * (h[i - 1] - params[1]) + params[3] * eta[i - 1]
     ret[i] <- exp(h[i]/2)*epsilon[i]
   }
-  return(list(returns = ret[-c(1:n_burnin)], volatility = exp(h[-c(1:n_burnin)]/2), e = epsilon[-c(1:n_burnin)]))
+  h[i + 1] <- exp((params[1] + params[2] * (h[i] - params[1])) / 2) * exp(params[3] ^2 / 8)
+  
+  return(list(returns = ret[-c(1:n_burnin)], volatility = h[i + 1], e = epsilon[-c(1:n_burnin)]))
 }
-#dados <- sv_sim(10000, c(1.68, 0.95, 0.23, 7), "std")
+  
+sv_sim_old2 <- function(n, params, distri) {
+  # params = c(phi, sigma_y, sigma_h, nu)
+  n_burnin <- 500
+  n_tot <- n_burnin + n
+  h <- rep(NA, n_tot)
+  ret <- rep(NA, n_tot)
+  
+  eta <- rnorm(n_tot)
+  if (distri == "std") {
+    epsilon <- rt(n_tot, df = params[4]) * sqrt((params[4] - 2) / params[4])
+  } else {
+    epsilon <-  rnorm(n_tot)
+  }
+  
+  h[1] <- rnorm(1, 0, params[3] / sqrt(1 - params[1]^2))
+  ret[1] <- params[2] * exp(h[1] / 2) * epsilon[1]
+  for (i in 2:n_tot) {
+    h[i] <- params[1] * h[i - 1] + params[3] * eta[i - 1]
+    ret[i] <- params[2] * exp(h[i] / 2) * epsilon[i]
+  }
+  return(list(returns = ret[-c(1:n_burnin)], volatility = params[2] * exp(h[-c(1:n_burnin)]/2)))
+}
+
+sv_sim_old <- function(n, params, distri) {
+  # params = c(phi, sigma_y, sigma_h, nu)
+  n_burnin <- 500
+  n_tot <- n_burnin + n
+  
+  if (distri == "std") {
+    out <- sim_sv(param = list(phi = params[1], sigma_y = params[2], sigma_h = params[3], df = params[4], alpha = NULL, rho = NULL),
+      nobs = n_tot, model = "t")
+  } else {
+    out <- sim_sv(param = list(phi = params[1], sigma_y = params[2], sigma_h = params[3], df = NULL, alpha = NULL, rho = NULL),
+      nobs = n_tot, model = "gaussian")
+  }
+  return(list(returns = out$y[-c(1:n_burnin)], volatility = params[2] * exp(out$h[-c(1:n_burnin)]/2)))
+}
 
 msgarch_sim <- function(n, params, distri, P) {
   k <- 2
@@ -143,7 +185,7 @@ msgarch_sim <- function(n, params, distri, P) {
       ret[i] <- epsilon[i] * sqrt(h[i, s[i]])
     }
   }
-  return(list(returns = ret[-c(1:n_burnin)], volatility = sqrt(h[-c(1:n_burnin), ]), e = epsilon[-c(1:n_burnin)], s = s[-c(1:n_burnin)]))
+  return(list(returns = ret[-c(1:n_burnin)], volatility = sqrt(h[-c(1:n_burnin), k + 1]), e = epsilon[-c(1:n_burnin)], s = s[-c(1:n_burnin)]))
 }
 
 dcs_sim <- function(n, params, distri) {

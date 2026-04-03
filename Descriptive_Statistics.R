@@ -2,7 +2,9 @@
 #####                    Descriptive Statistics                           #####
 ################################################################################
 library(dplyr)
+library(tidyr)
 library(readxl)
+library(ggplot2)
 library(stringr)
 library(moments)
 library(xtable)
@@ -21,9 +23,14 @@ data <- read_excel("./Data/capire_daily_returns.xlsx", skip = 3, col_types = c("
   filter(Data > "2010-01-01" & Data < "2025-01-01") |> 
   filter(!if_all(where(is.numeric), is.na)) |> 
   select(where(~ !any(is.na(.x)))) |> 
-  rename_with(~ str_remove(.x, "^(?s).*prov\n"), -Data) |> 
-  select(-Data)
+  rename_with(~ str_remove(.x, "^(?s).*prov\n"), -Data)
+
+data |> pivot_longer(cols = MMM:CRM, values_to = "returns", names_to = "stocks") |> 
+  ggplot(aes(y = returns, x = Data, colour = stocks)) + geom_line() +
+  xlab("Year") + ylab("Returns") + theme_bw() + theme(legend.position = "none")
+
+data |> select(-Data) |> apply(2, descriptive_statistics) |> t() |> round(4) |> xtable(digits = 4)
 
 
 
-apply(data, 2, descriptive_statistics) |> t() |> round(4) |> xtable(digits = 4)
+

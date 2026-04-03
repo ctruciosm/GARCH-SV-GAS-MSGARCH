@@ -434,14 +434,25 @@ VaR_VQR = function(r,VaR, alpha){
 }
 
 
-calibration_tests <- function(r_oos, var, es, alpha) {
+calibration_tests <- function(r_oos, var, es, s, alpha) {
   VaRBack <- BacktestVaR(r_oos, var, alpha = alpha, Lags = 4)
-  EBack   <- ESTest(alpha = alpha, r_oos, es, var, conf.level = 0.95,  boot = TRUE, n.boot = 5000)
-  aux_tests <- c(VaRBack$LRuc[2], VaRBack$LRcc[2],VaRBack$DQ$pvalue, VaR_VQR(r_oos, var, alpha),
-    EBack$boot.p.value,
-    cc_backtest(r_oos,  var, es, alpha  = alpha)$pvalue_twosided_simple, 
-    esr_backtest(r_oos, var, es, alpha  = alpha, B = 0, version = 3)$pvalue_onesided_asymptotic)
+  aux_tests <- c(VaRBack$LRuc[2], VaRBack$LRcc[2], 
+    cc_backtest(r_oos,  var, es, s, alpha  = alpha)$pvalue_twosided_general, 
+    esr_backtest(r_oos, var, es, alpha  = alpha, B = 0, version = 1)$pvalue_twosided_asymptotic)
   return(sum(aux_tests > 0.05))
+}
+
+calibration_tests_describe <- function(r_oos, var, es, s, alpha) {
+  VaRBack <- BacktestVaR(r_oos, var, alpha = alpha, Lags = 4)
+  aux_tests <- round(c(as.numeric(VaRBack$LRuc[2]), as.numeric(VaRBack$LRcc[2]), VaRBack$DQ$pvalue,
+    cc_backtest(r_oos,  var, es, s, alpha  = alpha)$pvalue_twosided_general, 
+    esr_backtest(r_oos, var, es, alpha  = alpha, B = 0, version = 1)$pvalue_twosided_asymptotic), 3)
+  aux <- c(ifelse(aux_tests[1] < 0.05, paste(aux_tests[1], "UC"), "NA"),
+      ifelse(aux_tests[2] < 0.05, paste(aux_tests[2], "CC"), "NA"),
+      ifelse(aux_tests[3] < 0.05, paste(aux_tests[3], "DQ"), "NA"),
+      ifelse(aux_tests[4] < 0.05, paste(aux_tests[4], "CoC"), "NA"),
+      ifelse(aux_tests[5] < 0.05, paste(aux_tests[5], "ESR"), "NA"))
+  return(aux)
 }
 
 
